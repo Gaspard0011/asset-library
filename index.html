@@ -157,6 +157,65 @@
         .upload-hint { font-size: 12px; color: #a1a1a6; }
         .upload-input { display: none; }
 
+        /* 存储统计卡片 */
+        .storage-stats {
+            background: linear-gradient(135deg, #0071e3, #42a5f5);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .storage-stats-header {
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0.9;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .storage-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .storage-stat-item {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .storage-stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .storage-stat-label {
+            font-size: 11px;
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+
+        .storage-bar {
+            margin-top: 12px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
         .section-title {
             font-size: 12px;
             font-weight: 600;
@@ -690,6 +749,35 @@
         .init-status { font-size: 13px; color: var(--text-secondary); margin-top: 12px; min-height: 20px; }
         .init-status.error { color: #ff3b30; }
         .init-status.success { color: #34c759; }
+
+        /* 压缩进度 */
+        .compress-progress {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+        }
+
+        .compress-progress.show { transform: translateX(0); }
+
+        .compress-spinner {
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .compress-text { font-size: 13px; color: var(--text-secondary); }
     </style>
 <base target="_blank">
 </head>
@@ -716,6 +804,12 @@
         <div class="loading-text">正在连接团队素材库...</div>
     </div>
 
+    <!-- 压缩进度提示 -->
+    <div class="compress-progress" id="compressProgress">
+        <div class="compress-spinner"></div>
+        <span class="compress-text" id="compressText">正在压缩图片...</span>
+    </div>
+
     <header class="top-bar">
         <div class="logo">
             <div class="logo-icon">◆</div>
@@ -733,10 +827,31 @@
 
     <div class="main-container">
         <aside class="sidebar">
+            <!-- 存储统计 -->
+            <div class="storage-stats">
+                <div class="storage-stats-header">
+                    <span>📊</span>
+                    <span>存储统计</span>
+                </div>
+                <div class="storage-stats-grid">
+                    <div class="storage-stat-item">
+                        <div class="storage-stat-value" id="statCount">0</div>
+                        <div class="storage-stat-label">张图片</div>
+                    </div>
+                    <div class="storage-stat-item">
+                        <div class="storage-stat-value" id="statSize">0 MB</div>
+                        <div class="storage-stat-label">已用空间</div>
+                    </div>
+                </div>
+                <div class="storage-bar">
+                    <div class="storage-bar-fill" id="storageBarFill" style="width: 0%"></div>
+                </div>
+            </div>
+
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">↑</div>
                 <div class="upload-text">点击或拖拽上传</div>
-                <div class="upload-hint">支持批量上传，团队实时同步</div>
+                <div class="upload-hint">支持批量上传，自动压缩，团队实时同步</div>
                 <input type="file" class="upload-input" id="fileInput" multiple accept="image/*">
             </div>
 
@@ -855,6 +970,14 @@
         let isOnline = false;
         let realtimeChannel = null;
 
+        // 压缩配置
+        const COMPRESS_CONFIG = {
+            maxWidth: 1920,
+            maxHeight: 1920,
+            quality: 0.85,
+            maxSizeMB: 2
+        };
+
         // DOM 元素
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -876,6 +999,60 @@
         const initOverlay = document.getElementById('initOverlay');
         const initBtn = document.getElementById('initBtn');
         const initStatus = document.getElementById('initStatus');
+        const compressProgress = document.getElementById('compressProgress');
+        const compressText = document.getElementById('compressText');
+
+        // ==================== 图片压缩 ====================
+        async function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width, height } = img;
+                        
+                        // 计算缩放比例
+                        const scale = Math.min(
+                            COMPRESS_CONFIG.maxWidth / width,
+                            COMPRESS_CONFIG.maxHeight / height,
+                            1
+                        );
+                        
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
+                        
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 使用高质量缩放
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // 转换为 Blob
+                        canvas.toBlob((blob) => {
+                            if (!blob) {
+                                reject(new Error('压缩失败'));
+                                return;
+                            }
+                            resolve({
+                                blob: blob,
+                                originalSize: file.size,
+                                compressedSize: blob.size,
+                                width: width,
+                                height: height
+                            });
+                        }, file.type, COMPRESS_CONFIG.quality);
+                    };
+                    img.onerror = () => reject(new Error('图片加载失败'));
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => reject(new Error('文件读取失败'));
+                reader.readAsDataURL(file);
+            });
+        }
 
         // ==================== 数据库初始化 ====================
         async function initializeDatabase() {
@@ -884,7 +1061,6 @@
             initStatus.className = 'init-status';
 
             try {
-                // 创建 images 表（通过 REST API 直接创建）
                 const createTableSQL = `
                     CREATE TABLE IF NOT EXISTS images (
                         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -897,15 +1073,12 @@
                     );
                 `;
 
-                // 使用 Supabase 的 SQL 执行功能
                 const { error: sqlError } = await supabase.rpc('exec_sql', { sql: createTableSQL });
 
-                // 如果 rpc 不存在，尝试直接插入一条测试数据来触发表创建
                 if (sqlError) {
                     console.log('RPC 方式失败，尝试直接操作:', sqlError);
                 }
 
-                // 启用 RLS 并创建策略
                 const policiesSQL = `
                     ALTER TABLE images ENABLE ROW LEVEL SECURITY;
 
@@ -946,7 +1119,6 @@
                     .select('count', { count: 'exact', head: true });
 
                 if (error && error.code === '42P01') {
-                    // 表不存在
                     return false;
                 }
                 return !error;
@@ -962,7 +1134,6 @@
             const tableExists = await checkTableExists();
 
             if (!tableExists) {
-                // 显示初始化界面
                 loadingOverlay.style.display = 'none';
                 initOverlay.style.display = 'flex';
             } else {
@@ -991,7 +1162,6 @@
                 if (data && data.length > 0) {
                     categories = data;
                 } else {
-                    // 初始化默认分类
                     await saveCategoriesToDB();
                 }
             } catch (e) {
@@ -1012,6 +1182,7 @@
                 images = data || [];
                 renderGallery();
                 updateCounts();
+                updateStorageStats();
             } catch (error) {
                 console.error('加载图片失败:', error);
                 showToast('加载失败: ' + error.message, '✕');
@@ -1022,6 +1193,20 @@
             for (const cat of categories) {
                 await supabase.from('categories').upsert(cat);
             }
+        }
+
+        // ==================== 存储统计 ====================
+        function updateStorageStats() {
+            const count = images.length;
+            const totalSize = images.reduce((sum, img) => sum + (img.size || 0), 0);
+            
+            document.getElementById('statCount').textContent = count;
+            document.getElementById('statSize').textContent = formatSize(totalSize);
+            
+            // 模拟进度条（假设 1GB 为满）
+            const maxSize = 1024 * 1024 * 1024;
+            const percent = Math.min((totalSize / maxSize) * 100, 100);
+            document.getElementById('storageBarFill').style.width = percent + '%';
         }
 
         // ==================== 实时订阅 ====================
@@ -1083,23 +1268,40 @@
             setTimeout(() => loadingOverlay.style.display = 'none', 500);
         }
 
-        // ==================== 上传功能 ====================
+        // ==================== 上传功能（带压缩） ====================
         async function handleFiles(files) {
             const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
             if (fileArray.length === 0) return;
 
-            showToast(`正在上传 ${fileArray.length} 张图片...`, '⏳');
+            showToast(`正在处理 ${fileArray.length} 张图片...`, '⏳');
 
             for (const file of fileArray) {
                 try {
-                    // 转换为 Base64
-                    const base64 = await fileToBase64(file);
+                    let finalFile = file;
+                    let compressedInfo = null;
+
+                    // 如果图片大于阈值，进行压缩
+                    if (file.size > COMPRESS_CONFIG.maxSizeMB * 1024 * 1024) {
+                        compressText.textContent = `正在压缩: ${file.name}`;
+                        compressProgress.classList.add('show');
+                        
+                        const result = await compressImage(file);
+                        finalFile = new File([result.blob], file.name, { type: file.type });
+                        compressedInfo = result;
+                        
+                        compressProgress.classList.remove('show');
+                        
+                        const savedPercent = Math.round((1 - result.compressedSize / result.originalSize) * 100);
+                        console.log(`压缩 ${file.name}: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)} (节省 ${savedPercent}%)`);
+                    }
+
+                    const base64 = await fileToBase64(finalFile);
 
                     const imageData = {
                         name: file.name.replace(/\.[^/.]+$/, ""),
                         category: currentCategory === 'all' ? 'uncategorized' : currentCategory,
                         src: base64,
-                        size: file.size,
+                        size: finalFile.size,
                         type: file.type
                     };
 
@@ -1112,14 +1314,21 @@
                     if (error) throw error;
 
                     images.unshift(data);
+                    
+                    if (compressedInfo) {
+                        const saved = formatSize(compressedInfo.originalSize - compressedInfo.compressedSize);
+                        showToast(`上传成功（压缩节省 ${saved}）`);
+                    }
                 } catch (error) {
                     console.error('上传失败:', error);
+                    compressProgress.classList.remove('show');
                     showToast(`上传失败: ${file.name}`, '✕');
                 }
             }
 
             renderGallery();
             updateCounts();
+            updateStorageStats();
             showToast(`成功上传 ${fileArray.length} 张图片`);
         }
 
@@ -1592,7 +1801,6 @@
                     return;
                 }
 
-                // 将该分类下的图片移到未分类
                 const { error } = await supabase
                     .from('images')
                     .update({ category: 'uncategorized' })
