@@ -3,1637 +3,642 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asset Library - 团队素材库</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    <title>Supabase 图片上传系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-primary: #f5f5f7;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #fbfbfd;
-            --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
-            --accent: #0071e3;
-            --accent-hover: #0077ed;
-            --border: rgba(0, 0, 0, 0.08);
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 18px;
-            --radius-xl: 24px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* 自定义动画 */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.47059;
-            font-weight: 400;
-            letter-spacing: -0.022em;
-            overflow-x: hidden;
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(2); opacity: 0; }
         }
-
-        .top-bar {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            height: 52px;
-            background: rgba(255, 255, 255, 0.72);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            border-bottom: 1px solid var(--border);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 24px;
+        
+        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+        .animate-delay-1 { animation-delay: 0.1s; }
+        .animate-delay-2 { animation-delay: 0.2s; }
+        .animate-delay-3 { animation-delay: 0.3s; }
+        
+        .drop-zone {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23CBD5E1FF' stroke-width='2' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+            transition: all 0.3s ease;
         }
-
-        .logo {
-            font-size: 21px;
-            font-weight: 600;
-            letter-spacing: -0.021em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        
+        .drop-zone.drag-over {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%233B82F6FF' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+            background-color: #EFF6FF;
+            transform: scale(1.02);
         }
-
-        .logo-icon {
-            width: 28px; height: 28px;
-            background: linear-gradient(135deg, #0071e3, #42a5f5);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        .avatar {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 13px;
-        }
-
-        .sync-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            padding: 4px 10px;
-            background: var(--bg-tertiary);
-            border-radius: 20px;
-            transition: var(--transition);
-        }
-
-        .sync-status.online {
-            color: #34c759;
-            background: rgba(52, 199, 89, 0.1);
-        }
-
-        .sync-status.offline {
-            color: #ff3b30;
-            background: rgba(255, 59, 48, 0.1);
-        }
-
-        .sync-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .main-container {
-            display: flex;
-            margin-top: 52px;
-            height: calc(100vh - 52px);
-        }
-
-        .sidebar {
-            width: 260px;
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border);
-            padding: 20px 16px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        .upload-area {
-            border: 2px dashed #d2d2d7;
-            border-radius: var(--radius-md);
-            padding: 24px 16px;
-            text-align: center;
-            margin-bottom: 24px;
-            transition: var(--transition);
-            cursor: pointer;
-            background: var(--bg-tertiary);
-        }
-
-        .upload-area:hover, .upload-area.drag-over {
-            border-color: var(--accent);
-            background: rgba(0, 113, 227, 0.04);
-        }
-
-        .upload-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.6; }
-        .upload-text { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
-        .upload-hint { font-size: 12px; color: #a1a1a6; }
-        .upload-input { display: none; }
-
-        .section-title {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-secondary);
-            margin: 16px 0 8px 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .add-category-btn {
-            width: 24px; height: 24px;
-            border-radius: 6px;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            transition: var(--transition);
-        }
-
-        .add-category-btn:hover { background: var(--bg-primary); color: var(--accent); }
-
-        .category-list { list-style: none; }
-
-        .category-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 12px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: var(--transition);
-            margin-bottom: 2px;
-            font-size: 14px;
-            position: relative;
-        }
-
-        .category-item:hover { background: var(--bg-primary); }
-        .category-item.active { background: rgba(0, 113, 227, 0.1); color: var(--accent); font-weight: 500; }
-
-        .category-name { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
-        .category-icon { font-size: 16px; opacity: 0.8; }
-        .category-count {
-            font-size: 12px; color: var(--text-secondary);
-            background: var(--bg-primary); padding: 2px 6px;
-            border-radius: 10px; min-width: 20px; text-align: center;
-        }
-
-        .category-actions { display: none; gap: 4px; }
-        .category-item:hover .category-actions { display: flex; }
-
-        .icon-btn {
-            width: 24px; height: 24px;
-            border: none; background: transparent;
-            border-radius: 6px; cursor: pointer;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: var(--transition);
-        }
-
-        .icon-btn:hover { background: rgba(0, 0, 0, 0.06); color: var(--text-primary); }
-
-        .content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .toolbar {
-            padding: 16px 24px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            justify-content: space-between;
-        }
-
-        .search-box { position: relative; flex: 1; max-width: 400px; }
-        .search-box input {
-            width: 100%;
-            padding: 10px 16px 10px 36px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            background: var(--bg-tertiary);
-            font-size: 14px;
-            outline: none;
-            transition: var(--transition);
-            font-family: inherit;
-        }
-
-        .search-box input:focus {
-            border-color: var(--accent);
-            background: var(--bg-secondary);
-            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 12px; top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .view-options { display: flex; gap: 8px; }
-
-        .view-btn {
-            padding: 8px 16px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            border-radius: var(--radius-sm);
-            font-size: 13px;
-            cursor: pointer;
-            transition: var(--transition);
-            color: var(--text-secondary);
-            font-family: inherit;
-        }
-
-        .view-btn:hover { background: var(--bg-primary); }
-        .view-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
-        .view-btn.primary:hover { background: var(--accent-hover); }
-
-        .gallery { flex: 1; overflow-y: auto; padding: 24px; }
-
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 20px;
-        }
-
+        
         .image-card {
-            background: var(--bg-secondary);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-            cursor: pointer;
-            position: relative;
-            border: 1px solid transparent;
-            user-select: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
+        
         .image-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            border-color: var(--border);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
-
-        .image-wrapper {
-            position: relative;
+        
+        .loading-ring::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
             width: 100%;
-            padding-bottom: 75%;
-            background: var(--bg-tertiary);
-            overflow: hidden;
-        }
-
-        .image-wrapper img {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            pointer-events: none;
-        }
-
-        .image-card:hover .image-wrapper img { transform: scale(1.05); }
-
-        .image-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0);
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .image-card:hover .image-overlay {
-            background: rgba(0, 0, 0, 0.3);
-            opacity: 1;
-        }
-
-        .copy-hint {
-            color: white;
-            font-size: 14px;
-            font-weight: 500;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .image-info { padding: 12px; }
-
-        .image-name {
-            font-size: 13px;
-            font-weight: 500;
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            cursor: text;
-            padding: 2px 4px;
-            border-radius: 4px;
-            margin: -2px -4px;
-            transition: var(--transition);
-        }
-
-        .image-name:hover { background: var(--bg-primary); }
-        .image-name[contenteditable="true"] { background: white; outline: 2px solid var(--accent); white-space: normal; }
-
-        .image-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .image-category-tag {
-            background: var(--bg-primary);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .image-category-tag:hover { background: rgba(0, 113, 227, 0.1); color: var(--accent); }
-
-        .hover-preview {
-            position: fixed;
-            z-index: 1500;
-            pointer-events: none;
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            box-shadow: var(--shadow-lg);
-            background: var(--bg-secondary);
-            opacity: 0;
-            transform: scale(0.9) translateY(10px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
-            max-width: 400px;
-            max-height: 400px;
-        }
-
-        .hover-preview.visible { opacity: 1; transform: scale(1) translateY(0); }
-        .hover-preview img { max-width: 400px; max-height: 400px; display: block; }
-
-        .toast {
-            position: fixed;
-            bottom: 32px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 12px 24px;
-            border-radius: var(--radius-xl);
-            font-size: 14px;
-            z-index: 3000;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            backdrop-filter: blur(20px);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: var(--text-secondary);
-        }
-
-        .empty-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
-        .empty-title { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
-        .empty-desc { font-size: 14px; }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(10px);
-            z-index: 2500;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .modal-overlay.active { opacity: 1; pointer-events: all; }
-
-        .modal {
-            background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
-            width: 420px;
-            max-width: 90vw;
-            box-shadow: var(--shadow-lg);
-            transform: scale(0.9);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            overflow: hidden;
-        }
-
-        .modal-overlay.active .modal { transform: scale(1); }
-        .modal-header { padding: 20px 24px 0; font-size: 18px; font-weight: 600; }
-        .modal-body { padding: 20px 24px; }
-        .modal-footer {
-            padding: 16px 24px;
-            background: var(--bg-tertiary);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-
-        .form-group { margin-bottom: 16px; }
-        .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
-        .form-input {
-            width: 100%; padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            outline: none;
-            transition: var(--transition);
-            font-family: inherit;
-        }
-
-        .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1); }
-
-        .btn {
-            padding: 8px 16px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            cursor: pointer;
-            font-size: 13px;
-            font-family: inherit;
-            transition: var(--transition);
-            color: var(--text-primary);
-        }
-
-        .btn:hover { background: var(--bg-primary); }
-        .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
-        .btn-primary:hover { background: var(--accent-hover); }
-        .btn-danger { color: #ff3b30; border-color: #ff3b30; }
-        .btn-danger:hover { background: rgba(255, 59, 48, 0.1); }
-
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
-
-        .image-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2); }
-
-        .selection-bar {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: rgba(29, 29, 31, 0.95);
-            color: white;
-            padding: 12px 24px;
-            border-radius: var(--radius-xl);
-            z-index: 1500;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            backdrop-filter: blur(20px);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .selection-bar.show { transform: translateX(-50%) translateY(0); }
-        .selection-count { font-weight: 600; }
-        .selection-actions { display: flex; gap: 8px; }
-
-        .selection-btn {
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: none;
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            cursor: pointer;
-            font-size: 13px;
-            font-family: inherit;
-            transition: var(--transition);
-        }
-
-        .selection-btn:hover { background: rgba(255, 255, 255, 0.25); }
-
-        .category-picker-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(8px);
-            z-index: 2600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.25s ease;
-        }
-
-        .category-picker-overlay.active { opacity: 1; pointer-events: all; }
-
-        .category-picker {
-            background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
-            width: 320px;
-            max-width: 90vw;
-            box-shadow: var(--shadow-lg);
-            transform: scale(0.92) translateY(20px);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            overflow: hidden;
-        }
-
-        .category-picker-overlay.active .category-picker { transform: scale(1) translateY(0); }
-        .category-picker-header { padding: 20px 20px 0; font-size: 17px; font-weight: 600; }
-        .category-picker-list { padding: 12px; max-height: 320px; overflow-y: auto; }
-
-        .category-picker-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: var(--transition);
-            font-size: 14px;
-        }
-
-        .category-picker-item:hover { background: var(--bg-primary); }
-        .category-picker-item .picker-icon { font-size: 20px; }
-        .category-picker-footer { padding: 12px 16px; background: var(--bg-tertiary); display: flex; justify-content: flex-end; }
-
-        .copy-flash {
-            position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 16px 32px;
-            border-radius: var(--radius-xl);
-            font-size: 16px;
-            font-weight: 500;
-            z-index: 4000;
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            pointer-events: none;
-            backdrop-filter: blur(20px);
-        }
-
-        .copy-flash.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--bg-primary);
-            z-index: 5000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            transition: opacity 0.5s ease;
-        }
-
-        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
-
-        .loading-spinner {
-            width: 40px; height: 40px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
+            height: 100%;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            background: rgba(59, 130, 246, 0.3);
+            transform: translate(-50%, -50%);
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
         }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .loading-text { font-size: 14px; color: var(--text-secondary); }
-
-        .init-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--bg-primary);
-            z-index: 6000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            padding: 40px;
-            text-align: center;
+        
+        .progress-bar {
+            transition: width 0.3s ease;
         }
-
-        .init-overlay.hidden { display: none; }
-
-        .init-title { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
-        .init-desc { font-size: 14px; color: var(--text-secondary); max-width: 500px; line-height: 1.6; margin-bottom: 24px; }
-        .init-btn {
-            padding: 12px 32px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: var(--radius-md);
-            font-size: 15px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
+        
+        /* 骨架屏加载动画 */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
         }
-
-        .init-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        .init-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-        .init-status { font-size: 13px; color: var(--text-secondary); margin-top: 12px; min-height: 20px; }
-        .init-status.error { color: #ff3b30; }
-        .init-status.success { color: #34c759; }
+        
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .toast {
+            animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
     </style>
-<base target="_blank">
 </head>
-<body>
-    <!-- 初始化引导界面 -->
-    <div class="init-overlay" id="initOverlay">
-        <div class="logo" style="font-size: 28px;">
-            <div class="logo-icon" style="width: 40px; height: 40px; font-size: 20px;">◆</div>
-            <span>Asset Library</span>
-        </div>
-        <div>
-            <div class="init-title">首次使用需要初始化数据库</div>
-            <div class="init-desc">
-                点击下方的"一键初始化"按钮，系统会自动在 Supabase 中创建所需的表结构和权限。<br>
-                只需操作一次，之后团队成员打开网页即可直接使用。
-            </div>
-        </div>
-        <button class="init-btn" id="initBtn" onclick="initializeDatabase()">一键初始化数据库</button>
-        <div class="init-status" id="initStatus"></div>
-    </div>
+<body class="bg-gray-50 min-h-screen">
 
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">正在连接团队素材库...</div>
-    </div>
-
-    <header class="top-bar">
-        <div class="logo">
-            <div class="logo-icon">◆</div>
-            <span>Asset Library</span>
-        </div>
-        <div class="user-info">
-            <div class="sync-status" id="syncStatus">
-                <span class="sync-dot"></span>
-                <span id="syncText">连接中...</span>
-            </div>
-            <span>团队共享空间</span>
-            <div class="avatar">T</div>
-        </div>
-    </header>
-
-    <div class="main-container">
-        <aside class="sidebar">
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">↑</div>
-                <div class="upload-text">点击或拖拽上传</div>
-                <div class="upload-hint">支持批量上传，团队实时同步</div>
-                <input type="file" class="upload-input" id="fileInput" multiple accept="image/*">
-            </div>
-
-            <div class="section-title">
-                分类
-                <button class="add-category-btn" id="addCategoryBtn" title="新建分类">+</button>
-            </div>
-            <ul class="category-list" id="categoryList"></ul>
-        </aside>
-
-        <main class="content">
-            <div class="toolbar">
-                <div class="search-box">
-                    <span class="search-icon">⌕</span>
-                    <input type="text" id="searchInput" placeholder="搜索图片名称...">
+    <!-- 顶部导航 -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50 backdrop-blur-md bg-white/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900 tracking-tight">Supabase 图库</h1>
+                        <p class="text-xs text-gray-500">Storage 存储 · 极速上传</p>
+                    </div>
                 </div>
-                <div class="view-options">
-                    <button class="view-btn" id="selectModeBtn">批量选择</button>
-                    <button class="view-btn primary" id="uploadBtn">上传图片</button>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium text-green-700" id="storageStatus">Storage 已连接</span>
+                    </div>
+                    <button onclick="toggleConfig()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
+        </div>
+    </nav>
 
-            <div class="gallery" id="gallery">
-                <div class="gallery-grid" id="galleryGrid"></div>
-                <div class="empty-state" id="emptyState" style="display: none;">
-                    <div class="empty-icon">🖼</div>
-                    <div class="empty-title">暂无图片</div>
-                    <div class="empty-desc">拖拽或点击上传按钮添加图片素材<br>上传后团队所有人实时可见</div>
+    <!-- 配置面板 -->
+    <div id="configPanel" class="hidden bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="bg-gray-50 rounded-2xl p-6 border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                    </svg>
+                    Supabase 配置
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Project URL</label>
+                        <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co" 
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Anon Key</label>
+                        <input type="password" id="supabaseKey" placeholder="your-anon-key" 
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all">
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button onclick="saveConfig()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-600/20">
+                        保存并连接
+                    </button>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 
-    <div class="hover-preview" id="hoverPreview">
-        <img src="" alt="">
-    </div>
-
-    <div class="toast" id="toast">
-        <span id="toastIcon">✓</span>
-        <span id="toastMessage">操作成功</span>
-    </div>
-
-    <div class="copy-flash" id="copyFlash">📋 已复制到剪贴板</div>
-
-    <div class="modal-overlay" id="categoryModal">
-        <div class="modal">
-            <div class="modal-header" id="categoryModalTitle">新建分类</div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">分类名称</label>
-                    <input type="text" class="form-input" id="categoryNameInput" placeholder="输入分类名称">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- 上传区域 -->
+        <div class="mb-10 animate-slide-up">
+            <div id="dropZone" class="drop-zone relative bg-white rounded-2xl p-8 sm:p-12 text-center cursor-pointer group">
+                <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+                
+                <div class="relative inline-flex items-center justify-center w-20 h-20 mb-6 rounded-full bg-blue-50 group-hover:bg-blue-100 transition-colors">
+                    <svg class="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <div class="absolute inset-0 rounded-full border-2 border-blue-200 border-dashed animate-spin-slow opacity-0 group-hover:opacity-100"></div>
+                </div>
+                
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">拖拽图片到这里上传</h3>
+                <p class="text-gray-500 mb-4">或者 <span class="text-blue-600 font-medium">点击选择文件</span></p>
+                <p class="text-sm text-gray-400">支持 JPG、PNG、GIF、WebP · 单文件最大 50MB</p>
+                
+                <!-- 上传进度条（隐藏状态） -->
+                <div id="uploadProgress" class="hidden mt-6 max-w-md mx-auto">
+                    <div class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                        <span id="uploadFileName">正在上传...</span>
+                        <span id="uploadPercent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div id="progressBar" class="progress-bar bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn" id="categoryModalCancel">取消</button>
-                <button class="btn btn-primary" id="categoryModalConfirm">确定</button>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="flex flex-wrap items-center justify-between mb-6 animate-slide-up animate-delay-1">
+            <div class="flex items-center gap-6 mb-4 sm:mb-0">
+                <div>
+                    <p class="text-sm text-gray-500 mb-0.5">总图片数</p>
+                    <p class="text-2xl font-bold text-gray-900" id="totalCount">0</p>
+                </div>
+                <div class="w-px h-10 bg-gray-200"></div>
+                <div>
+                    <p class="text-sm text-gray-500 mb-0.5">存储空间</p>
+                    <p class="text-2xl font-bold text-gray-900" id="totalSize">0 MB</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <select id="sortSelect" onchange="loadImages()" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer">
+                    <option value="newest">最新上传</option>
+                    <option value="oldest">最早上传</option>
+                    <option value="name">文件名</option>
+                    <option value="size">文件大小</option>
+                </select>
             </div>
         </div>
-    </div>
 
-    <div class="modal-overlay" id="deleteModal">
-        <div class="modal">
-            <div class="modal-header">确认删除</div>
-            <div class="modal-body">
-                <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.5;">
-                    确定要删除分类 "<span id="deleteCategoryName"></span>" 吗？该分类下的图片将被移至"未分类"。
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" id="deleteModalCancel">取消</button>
-                <button class="btn btn-danger" id="deleteModalConfirm">删除</button>
-            </div>
+        <!-- 图片网格 -->
+        <div id="imageGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-slide-up animate-delay-2">
+            <!-- 动态生成 -->
         </div>
-    </div>
 
-    <div class="category-picker-overlay" id="categoryPickerOverlay">
-        <div class="category-picker">
-            <div class="category-picker-header">选择分类</div>
-            <div class="category-picker-list" id="categoryPickerList"></div>
-            <div class="category-picker-footer">
-                <button class="btn" id="categoryPickerCancel">取消</button>
+        <!-- 空状态 -->
+        <div id="emptyState" class="hidden text-center py-20 animate-slide-up">
+            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gray-100 mb-4">
+                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
             </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-1">暂无图片</h3>
+            <p class="text-gray-500">上传你的第一张图片开始使用</p>
         </div>
-    </div>
 
-    <div class="selection-bar" id="selectionBar">
-        <span class="selection-count">已选择 <span id="selectionCount">0</span> 项</span>
-        <div class="selection-actions">
-            <button class="selection-btn" id="batchMoveBtn">移动分类</button>
-            <button class="selection-btn" id="batchDeleteBtn">删除</button>
-            <button class="selection-btn" id="batchCancelBtn">取消</button>
+        <!-- 加载更多 -->
+        <div id="loadMore" class="hidden text-center mt-8">
+            <button onclick="loadImages()" class="px-6 py-3 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-medium rounded-xl transition-all shadow-sm">
+                加载更多
+            </button>
+        </div>
+    </main>
+
+    <!-- Toast 通知 -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+    <!-- 图片预览模态框 -->
+    <div id="previewModal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onclick="closePreview()">
+        <div class="relative max-w-5xl max-h-[90vh] w-full flex items-center justify-center" onclick="event.stopPropagation()">
+            <img id="previewImage" src="" alt="" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
+            <button onclick="closePreview()" class="absolute -top-12 right-0 p-2 text-white/80 hover:text-white transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg">
+                <p id="previewName" class="text-white font-medium text-lg"></p>
+                <p id="previewMeta" class="text-white/70 text-sm mt-1"></p>
+            </div>
         </div>
     </div>
 
     <script>
-        // ==================== Supabase 配置 ====================
-        const SUPABASE_URL = 'https://itbxnkutkbejbmyinmqz.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_J-fHVbKt2k63v1WJ7kVnKg_MLcTnmC7';
-
-        let supabase = null;
-        let images = [];
-        let categories = [
-            { id: 'uncategorized', name: '未分类', icon: '📄' },
-            { id: 'design', name: '设计素材', icon: '🎨' },
-            { id: 'photo', name: '摄影作品', icon: '📷' },
-            { id: 'icon', name: '图标', icon: '🎯' }
-        ];
-
-        let currentCategory = 'all';
-        let searchQuery = '';
-        let selectMode = false;
-        let selectedImages = new Set();
-        let editingCategory = null;
-        let hoverTimer = null;
-        let pendingImageId = null;
-        let isOnline = false;
-        let realtimeChannel = null;
-
-        // DOM 元素
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const galleryGrid = document.getElementById('galleryGrid');
-        const emptyState = document.getElementById('emptyState');
-        const categoryList = document.getElementById('categoryList');
-        const searchInput = document.getElementById('searchInput');
-        const hoverPreview = document.getElementById('hoverPreview');
-        const toast = document.getElementById('toast');
-        const categoryModal = document.getElementById('categoryModal');
-        const deleteModal = document.getElementById('deleteModal');
-        const selectionBar = document.getElementById('selectionBar');
-        const copyFlash = document.getElementById('copyFlash');
-        const categoryPickerOverlay = document.getElementById('categoryPickerOverlay');
-        const categoryPickerList = document.getElementById('categoryPickerList');
-        const syncStatus = document.getElementById('syncStatus');
-        const syncText = document.getElementById('syncText');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const initOverlay = document.getElementById('initOverlay');
-        const initBtn = document.getElementById('initBtn');
-        const initStatus = document.getElementById('initStatus');
-
-        // ==================== 数据库初始化 ====================
-        async function initializeDatabase() {
-            initBtn.disabled = true;
-            initStatus.textContent = '正在创建表结构...';
-            initStatus.className = 'init-status';
-
-            try {
-                // 创建 images 表（通过 REST API 直接创建）
-                const createTableSQL = `
-                    CREATE TABLE IF NOT EXISTS images (
-                        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-                        name TEXT NOT NULL DEFAULT '未命名',
-                        category TEXT NOT NULL DEFAULT 'uncategorized',
-                        src TEXT NOT NULL,
-                        size BIGINT DEFAULT 0,
-                        type TEXT DEFAULT 'image/png',
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                    );
-                `;
-
-                // 使用 Supabase 的 SQL 执行功能
-                const { error: sqlError } = await supabase.rpc('exec_sql', { sql: createTableSQL });
-
-                // 如果 rpc 不存在，尝试直接插入一条测试数据来触发表创建
-                if (sqlError) {
-                    console.log('RPC 方式失败，尝试直接操作:', sqlError);
-                }
-
-                // 启用 RLS 并创建策略
-                const policiesSQL = `
-                    ALTER TABLE images ENABLE ROW LEVEL SECURITY;
-
-                    DO $$ 
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_policies WHERE tablename = 'images' AND policyname = 'allow_all'
-                        ) THEN
-                            CREATE POLICY "allow_all" ON images
-                                FOR ALL USING (true) WITH CHECK (true);
-                        END IF;
-                    END $$;
-                `;
-
-                await supabase.rpc('exec_sql', { sql: policiesSQL });
-
-                initStatus.textContent = '✅ 初始化成功！正在加载...';
-                initStatus.className = 'init-status success';
-
-                setTimeout(() => {
-                    initOverlay.classList.add('hidden');
-                    startApp();
-                }, 1000);
-
-            } catch (error) {
-                console.error('初始化失败:', error);
-                initStatus.textContent = '初始化失败: ' + error.message + '，请手动在 Supabase Dashboard 中创建表';
-                initStatus.className = 'init-status error';
-                initBtn.disabled = false;
-            }
-        }
-
-        // ==================== 检查表是否存在 ====================
-        async function checkTableExists() {
-            try {
-                const { data, error } = await supabase
-                    .from('images')
-                    .select('count', { count: 'exact', head: true });
-
-                if (error && error.code === '42P01') {
-                    // 表不存在
-                    return false;
-                }
-                return !error;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        // ==================== 启动应用 ====================
-        async function init() {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-            const tableExists = await checkTableExists();
-
-            if (!tableExists) {
-                // 显示初始化界面
-                loadingOverlay.style.display = 'none';
-                initOverlay.style.display = 'flex';
+        // ==================== 配置 ====================
+        let supabaseClient = null;
+        const BUCKET_NAME = 'images';
+        const TABLE_NAME = 'image_records';
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedUrl = localStorage.getItem('supabaseUrl');
+            const savedKey = localStorage.getItem('supabaseKey');
+            
+            if (savedUrl && savedKey) {
+                document.getElementById('supabaseUrl').value = savedUrl;
+                document.getElementById('supabaseKey').value = savedKey;
+                initSupabase(savedUrl, savedKey);
             } else {
-                initOverlay.classList.add('hidden');
-                startApp();
+                toggleConfig();
+            }
+            
+            setupDragAndDrop();
+        });
+
+        function toggleConfig() {
+            const panel = document.getElementById('configPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function saveConfig() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            
+            if (!url || !key) {
+                showToast('请填写完整的配置信息', 'error');
+                return;
+            }
+            
+            localStorage.setItem('supabaseUrl', url);
+            localStorage.setItem('supabaseKey', key);
+            initSupabase(url, key);
+            toggleConfig();
+        }
+
+        function initSupabase(url, key) {
+            try {
+                supabaseClient = supabase.createClient(url, key);
+                document.getElementById('storageStatus').textContent = 'Storage 已连接';
+                document.getElementById('storageStatus').parentElement.className = 'hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full';
+                document.querySelector('#storageStatus').previousElementSibling.className = 'w-2 h-2 bg-green-500 rounded-full animate-pulse';
+                
+                ensureBucket().then(() => {
+                    loadImages();
+                });
+                
+                showToast('Supabase 连接成功', 'success');
+            } catch (e) {
+                showToast('连接失败，请检查配置', 'error');
+                console.error(e);
             }
         }
 
-        async function startApp() {
-            await loadCategories();
-            await loadImages();
-            setupRealtimeSubscription();
-            setupEventListeners();
-            updateSyncStatus(true);
-            hideLoading();
-        }
-
-        // ==================== 数据加载 ====================
-        async function loadCategories() {
+        async function ensureBucket() {
             try {
-                const { data, error } = await supabase
-                    .from('categories')
-                    .select('*')
-                    .order('created_at', { ascending: true });
-
-                if (data && data.length > 0) {
-                    categories = data;
-                } else {
-                    // 初始化默认分类
-                    await saveCategoriesToDB();
+                const { data: buckets } = await supabaseClient.storage.listBuckets();
+                const exists = buckets.find(b => b.name === BUCKET_NAME);
+                
+                if (!exists) {
+                    await supabaseClient.storage.createBucket(BUCKET_NAME, {
+                        public: true,
+                        fileSizeLimit: 52428800 // 50MB
+                    });
                 }
             } catch (e) {
-                console.log('分类表可能不存在，使用默认分类');
+                console.log('Bucket 检查/创建:', e.message);
             }
-            renderCategories();
         }
 
-        async function loadImages() {
+        // ==================== 拖拽上传 ====================
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                handleFiles(e.dataTransfer.files);
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+                fileInput.value = '';
+            });
+        }
+
+        async function handleFiles(files) {
+            if (!supabaseClient) {
+                showToast('请先配置 Supabase', 'error');
+                return;
+            }
+            
+            const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                showToast('请选择图片文件', 'error');
+                return;
+            }
+            
+            for (const file of imageFiles) {
+                await uploadFile(file);
+            }
+            
+            loadImages();
+        }
+
+        // ==================== 核心上传逻辑 ====================
+        async function uploadFile(file) {
+            const progressEl = document.getElementById('uploadProgress');
+            const fileNameEl = document.getElementById('uploadFileName');
+            const percentEl = document.getElementById('uploadPercent');
+            const barEl = document.getElementById('progressBar');
+            
+            progressEl.classList.remove('hidden');
+            fileNameEl.textContent = file.name;
+            
             try {
-                const { data, error } = await supabase
-                    .from('images')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-
-                images = data || [];
-                renderGallery();
-                updateCounts();
-            } catch (error) {
-                console.error('加载图片失败:', error);
-                showToast('加载失败: ' + error.message, '✕');
-            }
-        }
-
-        async function saveCategoriesToDB() {
-            for (const cat of categories) {
-                await supabase.from('categories').upsert(cat);
-            }
-        }
-
-        // ==================== 实时订阅 ====================
-        function setupRealtimeSubscription() {
-            realtimeChannel = supabase
-                .channel('images_changes')
-                .on('postgres_changes', 
-                    { event: '*', schema: 'public', table: 'images' },
-                    async (payload) => {
-                        console.log('实时更新:', payload);
-                        await loadImages();
-
-                        if (payload.eventType === 'INSERT') {
-                            showToast('新图片已同步', '📥');
+                // 生成唯一文件名
+                const ext = file.name.split('.').pop();
+                const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+                const filePath = `${new Date().getFullYear()}/${(new Date().getMonth()+1).toString().padStart(2,'0')}/${uniqueName}`;
+                
+                // 上传到 Supabase Storage
+                const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false,
+                        onUploadProgress: (progress) => {
+                            const percent = Math.round((progress.loaded / progress.total) * 100);
+                            percentEl.textContent = `${percent}%`;
+                            barEl.style.width = `${percent}%`;
                         }
-                    }
-                )
-                .subscribe();
+                    });
+                
+                if (uploadError) throw uploadError;
+                
+                // 获取公开 URL
+                const { data: urlData } = supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .getPublicUrl(filePath);
+                
+                // 保存记录到数据库（只存链接，不存 Base64）
+                const { error: dbError } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .insert({
+                        name: file.name,
+                        storage_path: filePath,
+                        public_url: urlData.publicUrl,
+                        size: file.size,
+                        type: file.type,
+                        created_at: new Date().toISOString()
+                    });
+                
+                if (dbError) throw dbError;
+                
+                showToast(`"${file.name}" 上传成功`, 'success');
+                
+            } catch (error) {
+                showToast(`上传失败: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                setTimeout(() => {
+                    progressEl.classList.add('hidden');
+                    barEl.style.width = '0%';
+                }, 1000);
+            }
+        }
+
+        // ==================== 加载图片 ====================
+        async function loadImages() {
+            if (!supabaseClient) return;
+            
+            const grid = document.getElementById('imageGrid');
+            const emptyState = document.getElementById('emptyState');
+            const sort = document.getElementById('sortSelect').value;
+            
+            try {
+                // 从数据库获取记录（轻量，只存链接）
+                let query = supabaseClient.from(TABLE_NAME).select('*');
+                
+                switch(sort) {
+                    case 'newest': query = query.order('created_at', { ascending: false }); break;
+                    case 'oldest': query = query.order('created_at', { ascending: true }); break;
+                    case 'name': query = query.order('name', { ascending: true }); break;
+                    case 'size': query = query.order('size', { ascending: false }); break;
+                }
+                
+                const { data: records, error } = await query.limit(50);
+                
+                if (error) throw error;
+                
+                if (!records || records.length === 0) {
+                    grid.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    updateStats(0, 0);
+                    return;
+                }
+                
+                emptyState.classList.add('hidden');
+                
+                // 计算总大小
+                const totalSize = records.reduce((sum, r) => sum + (r.size || 0), 0);
+                updateStats(records.length, totalSize);
+                
+                // 渲染图片卡片
+                grid.innerHTML = records.map((record, index) => `
+                    <div class="image-card group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl animate-slide-up" style="animation-delay: ${index * 0.05}s">
+                        <div class="relative aspect-[4/3] overflow-hidden bg-gray-100 cursor-pointer" onclick="previewImage('${record.public_url}', '${record.name}', '${formatSize(record.size)}')">
+                            <!-- 骨架屏 -->
+                            <div class="absolute inset-0 skeleton z-10 transition-opacity duration-500" id="skeleton-${record.id}"></div>
+                            
+                            <img src="${record.public_url}" 
+                                 alt="${record.name}"
+                                 class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                 onload="document.getElementById('skeleton-${record.id}').style.opacity = '0'"
+                                 loading="lazy">
+                            
+                            <!-- 悬浮遮罩 -->
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <div class="bg-white/90 backdrop-blur-sm rounded-full p-3 transform scale-75 group-hover:scale-100 transition-transform">
+                                    <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <h4 class="font-medium text-gray-900 truncate text-sm" title="${record.name}">${record.name}</h4>
+                                    <p class="text-xs text-gray-500 mt-1">${formatSize(record.size)} · ${formatDate(record.created_at)}</p>
+                                </div>
+                                <button onclick="deleteImage('${record.id}', '${record.storage_path}')" 
+                                    class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="mt-3 flex items-center gap-2">
+                                <button onclick="copyUrl('${record.public_url}')" 
+                                    class="flex-1 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                    复制链接
+                                </button>
+                                <a href="${record.public_url}" target="_blank"
+                                    class="flex-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                    </svg>
+                                    打开
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                showToast('加载失败: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        // ==================== 删除 ====================
+        async function deleteImage(id, storagePath) {
+            if (!confirm('确定要删除这张图片吗？')) return;
+            
+            try {
+                // 删除 Storage 文件
+                const { error: storageError } = await supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .remove([storagePath]);
+                
+                if (storageError) throw storageError;
+                
+                // 删除数据库记录
+                const { error: dbError } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .delete()
+                    .eq('id', id);
+                
+                if (dbError) throw dbError;
+                
+                showToast('删除成功', 'success');
+                loadImages();
+                
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== 预览 ====================
+        function previewImage(url, name, size) {
+            document.getElementById('previewImage').src = url;
+            document.getElementById('previewName').textContent = name;
+            document.getElementById('previewMeta').textContent = size;
+            document.getElementById('previewModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePreview() {
+            document.getElementById('previewModal').classList.add('hidden');
+            document.body.style.overflow = '';
         }
 
         // ==================== 工具函数 ====================
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+        function copyUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('链接已复制到剪贴板', 'success');
+            });
         }
 
         function formatSize(bytes) {
-            if (bytes === 0) return '0 B';
+            if (!bytes) return '0 B';
             const k = 1024;
             const sizes = ['B', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
-        function showToast(message, icon = '✓') {
-            document.getElementById('toastIcon').textContent = icon;
-            document.getElementById('toastMessage').textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2500);
+        function formatDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
         }
 
-        function showCopyFlash() {
-            copyFlash.classList.add('show');
-            setTimeout(() => copyFlash.classList.remove('show'), 1200);
+        function updateStats(count, size) {
+            document.getElementById('totalCount').textContent = count;
+            document.getElementById('totalSize').textContent = formatSize(size);
         }
 
-        function updateSyncStatus(online) {
-            isOnline = online;
-            if (online) {
-                syncStatus.className = 'sync-status online';
-                syncText.textContent = '实时同步中';
-            } else {
-                syncStatus.className = 'sync-status offline';
-                syncText.textContent = '离线模式';
-            }
-        }
-
-        function hideLoading() {
-            loadingOverlay.classList.add('hidden');
-            setTimeout(() => loadingOverlay.style.display = 'none', 500);
-        }
-
-        // ==================== 上传功能 ====================
-        async function handleFiles(files) {
-            const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
-            if (fileArray.length === 0) return;
-
-            showToast(`正在上传 ${fileArray.length} 张图片...`, '⏳');
-
-            for (const file of fileArray) {
-                try {
-                    // 转换为 Base64
-                    const base64 = await fileToBase64(file);
-
-                    const imageData = {
-                        name: file.name.replace(/\.[^/.]+$/, ""),
-                        category: currentCategory === 'all' ? 'uncategorized' : currentCategory,
-                        src: base64,
-                        size: file.size,
-                        type: file.type
-                    };
-
-                    const { data, error } = await supabase
-                        .from('images')
-                        .insert(imageData)
-                        .select()
-                        .single();
-
-                    if (error) throw error;
-
-                    images.unshift(data);
-                } catch (error) {
-                    console.error('上传失败:', error);
-                    showToast(`上传失败: ${file.name}`, '✕');
-                }
-            }
-
-            renderGallery();
-            updateCounts();
-            showToast(`成功上传 ${fileArray.length} 张图片`);
-        }
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-
-        // ==================== 复制功能 ====================
-        async function copyImageToClipboard(src) {
-            try {
-                const response = await fetch(src);
-                const blob = await response.blob();
-                const item = new ClipboardItem({ [blob.type]: blob });
-                await navigator.clipboard.write([item]);
-                showCopyFlash();
-            } catch (err) {
-                console.error('复制失败:', err);
-                try {
-                    await navigator.clipboard.writeText(src);
-                    showToast('已复制链接（浏览器限制无法直接复制图片）', '⚠');
-                } catch (e) {
-                    showToast('复制失败，请手动保存', '✕');
-                }
-            }
-        }
-
-        // ==================== 渲染分类 ====================
-        function renderCategories() {
-            const allCount = images.length;
-            let html = `
-                <li class="category-item ${currentCategory === 'all' ? 'active' : ''}" data-category="all">
-                    <span class="category-name">
-                        <span class="category-icon">⊞</span>
-                        全部图片
-                    </span>
-                    <span class="category-count">${allCount}</span>
-                </li>
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            
+            const icons = {
+                success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+                error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+                info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+            };
+            
+            toast.className = `toast flex items-center gap-3 px-5 py-3.5 ${colors[type]} text-white rounded-xl shadow-lg shadow-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500/30 min-w-[300px]`;
+            toast.innerHTML = `
+                ${icons[type]}
+                <span class="font-medium text-sm">${message}</span>
             `;
-
-            categories.forEach(cat => {
-                const count = images.filter(img => img.category === cat.id).length;
-                html += `
-                    <li class="category-item ${currentCategory === cat.id ? 'active' : ''}" data-category="${cat.id}">
-                        <span class="category-name">
-                            <span class="category-icon">${cat.icon || '📁'}</span>
-                            <span class="cat-text">${cat.name}</span>
-                        </span>
-                        <div class="category-actions">
-                            <button class="icon-btn edit-cat" data-id="${cat.id}" title="重命名">✎</button>
-                            <button class="icon-btn delete-cat" data-id="${cat.id}" title="删除">✕</button>
-                        </div>
-                        <span class="category-count">${count}</span>
-                    </li>
-                `;
-            });
-
-            categoryList.innerHTML = html;
-
-            categoryList.querySelectorAll('.category-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (e.target.closest('.icon-btn')) return;
-                    currentCategory = item.dataset.category;
-                    renderCategories();
-                    renderGallery();
-                });
-            });
-
-            categoryList.querySelectorAll('.edit-cat').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const cat = categories.find(c => c.id === btn.dataset.id);
-                    if (cat) {
-                        editingCategory = cat.id;
-                        document.getElementById('categoryModalTitle').textContent = '重命名分类';
-                        document.getElementById('categoryNameInput').value = cat.name;
-                        categoryModal.classList.add('active');
-                    }
-                });
-            });
-
-            categoryList.querySelectorAll('.delete-cat').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const cat = categories.find(c => c.id === btn.dataset.id);
-                    if (cat) {
-                        document.getElementById('deleteCategoryName').textContent = cat.name;
-                        editingCategory = cat.id;
-                        deleteModal.classList.add('active');
-                    }
-                });
-            });
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
         }
 
-        // ==================== 渲染图片网格 ====================
-        function renderGallery() {
-            let filtered = images;
-
-            if (currentCategory !== 'all') {
-                filtered = filtered.filter(img => img.category === currentCategory);
-            }
-
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase();
-                filtered = filtered.filter(img => 
-                    img.name.toLowerCase().includes(query) ||
-                    categories.find(c => c.id === img.category)?.name.toLowerCase().includes(query)
-                );
-            }
-
-            if (filtered.length === 0) {
-                galleryGrid.style.display = 'none';
-                emptyState.style.display = 'block';
-                return;
-            }
-
-            galleryGrid.style.display = 'grid';
-            emptyState.style.display = 'none';
-
-            galleryGrid.innerHTML = filtered.map(img => {
-                const cat = categories.find(c => c.id === img.category);
-                const catName = cat ? cat.name : '未分类';
-                const isSelected = selectedImages.has(img.id);
-
-                return `
-                    <div class="image-card ${isSelected ? 'selected' : ''}" data-id="${img.id}">
-                        <div class="image-wrapper">
-                            <img src="${img.src || ''}" alt="${img.name}" loading="lazy">
-                            <div class="image-overlay">
-                                <span class="copy-hint">📋 点击复制</span>
-                            </div>
-                        </div>
-                        <div class="image-info">
-                            <div class="image-name" data-id="${img.id}" title="点击重命名">${img.name}</div>
-                            <div class="image-meta">
-                                <span class="image-category-tag" data-id="${img.id}">${catName}</span>
-                                <span>${formatSize(img.size)}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            bindImageEvents();
-        }
-
-        function bindImageEvents() {
-            document.querySelectorAll('.image-card').forEach(card => {
-                const img = images.find(i => i.id === card.dataset.id);
-                if (!img) return;
-
-                card.addEventListener('mouseenter', (e) => {
-                    hoverTimer = setTimeout(() => {
-                        showHoverPreview(img.src, e);
-                    }, 1000);
-                });
-
-                card.addEventListener('mouseleave', () => {
-                    clearTimeout(hoverTimer);
-                    hideHoverPreview();
-                });
-
-                card.addEventListener('mousemove', (e) => {
-                    if (hoverPreview.classList.contains('visible')) {
-                        positionHoverPreview(e);
-                    }
-                });
-
-                card.addEventListener('click', (e) => {
-                    if (selectMode) {
-                        toggleSelection(img.id);
-                        return;
-                    }
-                    if (e.target.closest('.image-name') || e.target.closest('.image-category-tag')) {
-                        return;
-                    }
-                    copyImageToClipboard(img.src);
-                });
-            });
-
-            document.querySelectorAll('.image-name').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (selectMode) return;
-                    e.stopPropagation();
-                    makeEditable(el);
-                });
-            });
-
-            document.querySelectorAll('.image-category-tag').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (selectMode) return;
-                    e.stopPropagation();
-                    openCategoryPicker(el.dataset.id);
-                });
-            });
-        }
-
-        // ==================== 分类选择器 ====================
-        function openCategoryPicker(imageId) {
-            pendingImageId = imageId;
-            const items = categories.map(cat => `
-                <div class="category-picker-item" data-cat-id="${cat.id}">
-                    <span class="picker-icon">${cat.icon || '📁'}</span>
-                    <span>${cat.name}</span>
-                </div>
-            `).join('');
-
-            categoryPickerList.innerHTML = items;
-            categoryPickerOverlay.classList.add('active');
-
-            categoryPickerList.querySelectorAll('.category-picker-item').forEach(item => {
-                item.addEventListener('click', async () => {
-                    await updateImageCategory(pendingImageId, item.dataset.catId);
-                    closeCategoryPicker();
-                });
-            });
-        }
-
-        async function updateImageCategory(imageId, categoryId) {
-            const { error } = await supabase
-                .from('images')
-                .update({ category: categoryId })
-                .eq('id', imageId);
-
-            if (error) {
-                showToast('更新失败: ' + error.message, '✕');
-            } else {
-                const img = images.find(i => i.id === imageId);
-                if (img) img.category = categoryId;
-                renderGallery();
-                updateCounts();
-                showToast('已移动分类');
-            }
-        }
-
-        function closeCategoryPicker() {
-            categoryPickerOverlay.classList.remove('active');
-            pendingImageId = null;
-        }
-
-        // ==================== 悬停预览 ====================
-        function showHoverPreview(src, e) {
-            if (!src) return;
-            const img = hoverPreview.querySelector('img');
-            img.src = src;
-            hoverPreview.classList.add('visible');
-            positionHoverPreview(e);
-        }
-
-        function hideHoverPreview() {
-            hoverPreview.classList.remove('visible');
-        }
-
-        function positionHoverPreview(e) {
-            const x = e.clientX + 20;
-            const y = e.clientY + 20;
-            const rect = hoverPreview.getBoundingClientRect();
-
-            let left = x;
-            let top = y;
-
-            if (left + rect.width > window.innerWidth) {
-                left = e.clientX - rect.width - 20;
-            }
-            if (top + rect.height > window.innerHeight) {
-                top = e.clientY - rect.height - 20;
-            }
-
-            hoverPreview.style.left = left + 'px';
-            hoverPreview.style.top = top + 'px';
-        }
-
-        // ==================== 重命名 ====================
-        function makeEditable(el) {
-            el.contentEditable = true;
-            el.focus();
-
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            async function save() {
-                el.contentEditable = false;
-                const newName = el.textContent.trim();
-                const img = images.find(i => i.id === el.dataset.id);
-                if (img && newName && newName !== img.name) {
-                    const { error } = await supabase
-                        .from('images')
-                        .update({ name: newName })
-                        .eq('id', el.dataset.id);
-
-                    if (error) {
-                        showToast('重命名失败', '✕');
-                        el.textContent = img.name;
-                    } else {
-                        img.name = newName;
-                        showToast('已重命名');
-                    }
-                } else {
-                    el.textContent = img ? img.name : '';
-                }
-            }
-
-            el.addEventListener('blur', save, { once: true });
-            el.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    el.blur();
-                }
-                if (e.key === 'Escape') {
-                    el.textContent = images.find(i => i.id === el.dataset.id)?.name || '';
-                    el.blur();
-                }
-            });
-        }
-
-        // ==================== 批量操作 ====================
-        function toggleSelectMode() {
-            selectMode = !selectMode;
-            selectedImages.clear();
-            updateSelectionBar();
-            document.getElementById('selectModeBtn').textContent = selectMode ? '退出选择' : '批量选择';
-            document.getElementById('selectModeBtn').classList.toggle('primary', selectMode);
-            renderGallery();
-        }
-
-        function toggleSelection(id) {
-            if (selectedImages.has(id)) {
-                selectedImages.delete(id);
-            } else {
-                selectedImages.add(id);
-            }
-            renderGallery();
-            updateSelectionBar();
-        }
-
-        function updateSelectionBar() {
-            const count = selectedImages.size;
-            document.getElementById('selectionCount').textContent = count;
-            if (count > 0) {
-                selectionBar.classList.add('show');
-            } else {
-                selectionBar.classList.remove('show');
-            }
-        }
-
-        function batchMove() {
-            if (selectedImages.size === 0) return;
-
-            const items = categories.map(cat => `
-                <div class="category-picker-item" data-cat-id="${cat.id}">
-                    <span class="picker-icon">${cat.icon || '📁'}</span>
-                    <span>${cat.name}</span>
-                </div>
-            `).join('');
-
-            categoryPickerList.innerHTML = items;
-            categoryPickerOverlay.classList.add('active');
-
-            categoryPickerList.querySelectorAll('.category-picker-item').forEach(item => {
-                item.addEventListener('click', async () => {
-                    const updates = Array.from(selectedImages).map(id => ({
-                        id: id,
-                        category: item.dataset.catId
-                    }));
-
-                    for (const update of updates) {
-                        await supabase.from('images').update({ category: update.category }).eq('id', update.id);
-                    }
-
-                    selectedImages.clear();
-                    updateSelectionBar();
-                    await loadImages();
-                    showToast('已批量移动');
-                    closeCategoryPicker();
-                });
-            });
-        }
-
-        async function batchDelete() {
-            if (selectedImages.size === 0) return;
-            if (!confirm(`确定要删除选中的 ${selectedImages.size} 张图片吗？`)) return;
-
-            for (const id of selectedImages) {
-                await supabase.from('images').delete().eq('id', id);
-            }
-
-            selectedImages.clear();
-            updateSelectionBar();
-            await loadImages();
-            showToast('已删除选中图片');
-        }
-
-        function updateCounts() {
-            renderCategories();
-        }
-
-        // ==================== 事件监听 ====================
-        function setupEventListeners() {
-            uploadArea.addEventListener('click', () => fileInput.click());
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('drag-over');
-            });
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('drag-over');
-            });
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('drag-over');
-                handleFiles(e.dataTransfer.files);
-            });
-            fileInput.addEventListener('change', (e) => {
-                handleFiles(e.target.files);
-                fileInput.value = '';
-            });
-
-            searchInput.addEventListener('input', (e) => {
-                searchQuery = e.target.value.trim();
-                renderGallery();
-            });
-
-            document.getElementById('addCategoryBtn').addEventListener('click', () => {
-                editingCategory = null;
-                document.getElementById('categoryModalTitle').textContent = '新建分类';
-                document.getElementById('categoryNameInput').value = '';
-                categoryModal.classList.add('active');
-            });
-
-            document.getElementById('categoryModalCancel').addEventListener('click', () => {
-                categoryModal.classList.remove('active');
-            });
-
-            document.getElementById('categoryModalConfirm').addEventListener('click', async () => {
-                const name = document.getElementById('categoryNameInput').value.trim();
-                if (!name) {
-                    showToast('请输入分类名称', '⚠');
-                    return;
-                }
-
-                if (editingCategory) {
-                    const cat = categories.find(c => c.id === editingCategory);
-                    if (cat) cat.name = name;
-                    showToast('分类已重命名');
-                } else {
-                    const newCat = { id: generateId(), name: name, icon: '📁', created_at: new Date().toISOString() };
-                    categories.push(newCat);
-                    await supabase.from('categories').insert(newCat);
-                    showToast('分类已创建');
-                }
-
-                renderCategories();
-                categoryModal.classList.remove('active');
-            });
-
-            document.getElementById('deleteModalCancel').addEventListener('click', () => {
-                deleteModal.classList.remove('active');
-            });
-
-            document.getElementById('deleteModalConfirm').addEventListener('click', async () => {
-                if (!editingCategory || editingCategory === 'uncategorized') {
-                    showToast('无法删除未分类', '⚠');
-                    deleteModal.classList.remove('active');
-                    return;
-                }
-
-                // 将该分类下的图片移到未分类
-                const { error } = await supabase
-                    .from('images')
-                    .update({ category: 'uncategorized' })
-                    .eq('category', editingCategory);
-
-                categories = categories.filter(c => c.id !== editingCategory);
-                await supabase.from('categories').delete().eq('id', editingCategory);
-
-                if (currentCategory === editingCategory) currentCategory = 'all';
-
-                deleteModal.classList.remove('active');
-                await loadImages();
-                showToast('分类已删除');
-            });
-
-            document.getElementById('selectModeBtn').addEventListener('click', toggleSelectMode);
-            document.getElementById('batchMoveBtn').addEventListener('click', batchMove);
-            document.getElementById('batchDeleteBtn').addEventListener('click', batchDelete);
-            document.getElementById('batchCancelBtn').addEventListener('click', () => {
-                selectMode = false;
-                selectedImages.clear();
-                updateSelectionBar();
-                document.getElementById('selectModeBtn').textContent = '批量选择';
-                document.getElementById('selectModeBtn').classList.remove('primary');
-                renderGallery();
-            });
-
-            document.getElementById('uploadBtn').addEventListener('click', () => fileInput.click());
-            document.getElementById('categoryPickerCancel').addEventListener('click', closeCategoryPicker);
-
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    categoryModal.classList.remove('active');
-                    deleteModal.classList.remove('active');
-                    closeCategoryPicker();
-                }
-            });
-        }
-
-        // 启动
-        window.addEventListener('DOMContentLoaded', init);
+        // ESC 关闭预览
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePreview();
+        });
     </script>
 </body>
 </html>
