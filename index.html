@@ -114,6 +114,11 @@
             background: rgba(255, 59, 48, 0.1);
         }
 
+        .sync-status.warning {
+            color: #ff9500;
+            background: rgba(255, 149, 0, 0.1);
+        }
+
         .sync-dot {
             width: 6px; height: 6px;
             border-radius: 50%;
@@ -749,6 +754,23 @@
         .init-status { font-size: 13px; color: var(--text-secondary); margin-top: 12px; min-height: 20px; }
         .init-status.error { color: #ff3b30; }
         .init-status.success { color: #34c759; }
+        .init-status.warning { color: #ff9500; }
+
+        .init-sql-box {
+            background: #1d1d1f;
+            color: #f5f5f7;
+            padding: 16px;
+            border-radius: var(--radius-md);
+            font-family: "SF Mono", Monaco, monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            text-align: left;
+            max-width: 600px;
+            width: 100%;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 8px 0;
+        }
 
         /* 压缩进度 */
         .compress-progress {
@@ -780,6 +802,7 @@
         .compress-text { font-size: 13px; color: var(--text-secondary); }
     </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
     <!-- 初始化引导界面 -->
@@ -795,7 +818,7 @@
                 只需操作一次，之后团队成员打开网页即可直接使用。
             </div>
         </div>
-        <button class="init-btn" id="initBtn" onclick="initializeDatabase()">一键初始化数据库</button>
+        <button class="init-btn" id="initBtn" onclick="checkAndInitDatabase()">一键初始化数据库</button>
         <div class="init-status" id="initStatus"></div>
     </div>
 
@@ -1055,59 +1078,104 @@
         }
 
         // ==================== 数据库初始化 ====================
-        async function initializeDatabase() {
+        // 初始化 SQL 语句（用于手动执行）
+        const INIT_SQL = `CREATE TABLE IF NOT EXISTS images (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT '未命名',
+    category TEXT NOT NULL DEFAULT 'uncategorized',
+    src TEXT NOT NULL,
+    size BIGINT DEFAULT 0,
+    type TEXT DEFAULT 'image/png',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    icon TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'images' AND policyname = 'allow_all'
+    ) THEN
+        CREATE POLICY "allow_all" ON images
+            FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'categories' AND policyname = 'allow_all_categories'
+    ) THEN
+        CREATE POLICY "allow_all_categories" ON categories
+            FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;`;
+
+        async function checkAndInitDatabase() {
             initBtn.disabled = true;
-            initStatus.textContent = '正在创建表结构...';
+            initStatus.textContent = '正在检查数据库状态...';
             initStatus.className = 'init-status';
 
-            try {
-                const createTableSQL = `
-                    CREATE TABLE IF NOT EXISTS images (
-                        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-                        name TEXT NOT NULL DEFAULT '未命名',
-                        category TEXT NOT NULL DEFAULT 'uncategorized',
-                        src TEXT NOT NULL,
-                        size BIGINT DEFAULT 0,
-                        type TEXT DEFAULT 'image/png',
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                    );
-                `;
+            const { exists, error, code } = await checkTableExists();
 
-                const { error: sqlError } = await supabase.rpc('exec_sql', { sql: createTableSQL });
-
-                if (sqlError) {
-                    console.log('RPC 方式失败，尝试直接操作:', sqlError);
-                }
-
-                const policiesSQL = `
-                    ALTER TABLE images ENABLE ROW LEVEL SECURITY;
-
-                    DO $$ 
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_policies WHERE tablename = 'images' AND policyname = 'allow_all'
-                        ) THEN
-                            CREATE POLICY "allow_all" ON images
-                                FOR ALL USING (true) WITH CHECK (true);
-                        END IF;
-                    END $$;
-                `;
-
-                await supabase.rpc('exec_sql', { sql: policiesSQL });
-
-                initStatus.textContent = '✅ 初始化成功！正在加载...';
+            if (exists === true) {
+                // 表已存在，直接启动
+                initStatus.textContent = '✅ 数据库已就绪！正在加载...';
                 initStatus.className = 'init-status success';
-
                 setTimeout(() => {
                     initOverlay.classList.add('hidden');
                     startApp();
-                }, 1000);
-
-            } catch (error) {
-                console.error('初始化失败:', error);
-                initStatus.textContent = '初始化失败: ' + error.message + '，请手动在 Supabase Dashboard 中创建表';
-                initStatus.className = 'init-status error';
+                }, 800);
+            } else if (exists === false) {
+                // 表确实不存在，显示 SQL 指引
+                initTitle.textContent = '需要手动初始化数据库';
+                initDesc.innerHTML = 'Supabase 免费版不支持自动执行 SQL，请按以下步骤操作：<br>1. 打开 Supabase Dashboard → SQL Editor<br>2. 粘贴并执行下面的 SQL<br>3. 返回本页点击"我已执行，重新加载"';
+                initActions.style.display = 'none';
+                initSqlContainer.style.display = 'block';
+                initSqlBox.textContent = INIT_SQL;
+                initStatus.textContent = '';
+            } else {
+                // 连接错误，不显示初始化，提示刷新
+                initStatus.textContent = '⚠️ ' + (error || '连接失败');
+                initStatus.className = 'init-status warning';
                 initBtn.disabled = false;
+                initBtn.textContent = '重新检查';
+            }
+        }
+
+        function copyInitSQL() {
+            navigator.clipboard.writeText(INIT_SQL).then(() => {
+                showToast('SQL 已复制到剪贴板');
+            }).catch(() => {
+                showToast('复制失败，请手动复制', '✕');
+            });
+        }
+
+        async function retryAfterInit() {
+            initStatus.textContent = '正在重新检查...';
+            initStatus.className = 'init-status';
+
+            const { exists, error } = await checkTableExists();
+
+            if (exists === true) {
+                initStatus.textContent = '✅ 初始化成功！正在加载...';
+                initStatus.className = 'init-status success';
+                setTimeout(() => {
+                    initOverlay.classList.add('hidden');
+                    startApp();
+                }, 800);
+            } else {
+                initStatus.textContent = '❌ 仍未检测到表，请确认 SQL 已正确执行';
+                initStatus.className = 'init-status error';
             }
         }
 
@@ -1118,12 +1186,22 @@
                     .from('images')
                     .select('count', { count: 'exact', head: true });
 
+                // 表不存在（42P01 = undefined_table）
                 if (error && error.code === '42P01') {
-                    return false;
+                    return { exists: false, error: null, code: '42P01' };
                 }
-                return !error;
+
+                // 其他数据库错误（权限、连接等）
+                if (error) {
+                    console.error('检查表状态出错:', error);
+                    return { exists: null, error: error.message, code: error.code };
+                }
+
+                // 成功 - 表存在
+                return { exists: true, error: null, code: null };
             } catch (e) {
-                return false;
+                console.error('连接异常:', e);
+                return { exists: null, error: '网络连接失败，请检查网络后刷新页面', code: 'NETWORK' };
             }
         }
 
@@ -1131,14 +1209,23 @@
         async function init() {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-            const tableExists = await checkTableExists();
+            const { exists, error, code } = await checkTableExists();
 
-            if (!tableExists) {
+            if (exists === true) {
+                // 表存在，正常启动
+                initOverlay.classList.add('hidden');
+                startApp();
+            } else if (exists === false) {
+                // 表不存在，显示初始化引导
                 loadingOverlay.style.display = 'none';
                 initOverlay.style.display = 'flex';
             } else {
-                initOverlay.classList.add('hidden');
-                startApp();
+                // 连接失败，显示错误但不误导初始化
+                loadingOverlay.style.display = 'none';
+                initOverlay.style.display = 'flex';
+                initBtn.disabled = false;
+                initStatus.textContent = '⚠️ ' + (error || '连接失败，请刷新重试');
+                initStatus.className = 'init-status warning';
             }
         }
 
