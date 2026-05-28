@@ -812,14 +812,27 @@
             <span>Asset Library</span>
         </div>
         <div>
-            <div class="init-title">首次使用需要初始化数据库</div>
-            <div class="init-desc">
-                点击下方的"一键初始化"按钮，系统会自动在 Supabase 中创建所需的表结构和权限。<br>
-                只需操作一次，之后团队成员打开网页即可直接使用。
+            <div class="init-title" id="initTitle">首次使用需要初始化数据库</div>
+            <div class="init-desc" id="initDesc">
+                点击下方按钮检查数据库状态。<br>
+                如果数据库未创建，请按照指引手动在 Supabase Dashboard 中初始化。
             </div>
         </div>
-        <button class="init-btn" id="initBtn" onclick="checkAndInitDatabase()">一键初始化数据库</button>
+        <div id="initActions">
+            <button class="init-btn" id="initBtn" onclick="initializeDatabase()">检查数据库状态</button>
+        </div>
         <div class="init-status" id="initStatus"></div>
+        <div id="initSqlContainer" style="display: none; width: 100%; max-width: 640px;">
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+                👇 请复制以下 SQL，在 Supabase Dashboard → SQL Editor 中执行：
+            </div>
+            <div class="init-sql-box" id="initSqlBox"></div>
+            <button class="init-btn" style="margin-top: 12px;" onclick="copyInitSQL()">📋 复制 SQL 语句</button>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5;">
+                执行完成后，点击下方的"我已执行，重新加载"
+            </div>
+            <button class="init-btn" style="margin-top: 8px; background: #34c759;" onclick="retryAfterInit()">✅ 我已执行，重新加载</button>
+        </div>
     </div>
 
     <div class="loading-overlay" id="loadingOverlay">
@@ -974,6 +987,10 @@
         const SUPABASE_URL = 'https://itbxnkutkbejbmyinmqz.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J-fHVbKt2k63v1WJ7kVnKg_MLcTnmC7';
 
+        // 管理员密码 - 只有知道密码的人才能执行数据库初始化
+        // 请修改为你自己的密码，留空则允许任何人初始化（不推荐）
+        const ADMIN_PASSWORD = 'asset2024';
+
         let supabase = null;
         let images = [];
         let categories = [
@@ -1077,8 +1094,7 @@
             });
         }
 
-        // ==================== 数据库初始化 ====================
-        // 初始化 SQL 语句（用于手动执行）
+        // ==================== 初始化 SQL 语句 ====================
         const INIT_SQL = `CREATE TABLE IF NOT EXISTS images (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL DEFAULT '未命名',
@@ -1120,7 +1136,8 @@ BEGIN
     END IF;
 END $$;`;
 
-        async function checkAndInitDatabase() {
+        // ==================== 数据库初始化 ====================
+        async function initializeDatabase() {
             initBtn.disabled = true;
             initStatus.textContent = '正在检查数据库状态...';
             initStatus.className = 'init-status';
@@ -1144,7 +1161,7 @@ END $$;`;
                 initSqlBox.textContent = INIT_SQL;
                 initStatus.textContent = '';
             } else {
-                // 连接错误，不显示初始化，提示刷新
+                // 连接错误
                 initStatus.textContent = '⚠️ ' + (error || '连接失败');
                 initStatus.className = 'init-status warning';
                 initBtn.disabled = false;
@@ -1179,15 +1196,19 @@ END $$;`;
             }
         }
 
-        // ==================== 检查表是否存在 ====================
+        // ==================== 改进的数据库状态检查 ====================
         async function checkTableExists() {
             try {
+                console.log('正在检查数据库连接...');
                 const { data, error } = await supabase
                     .from('images')
                     .select('count', { count: 'exact', head: true });
 
+                console.log('检查结果:', { data, error });
+
                 // 表不存在（42P01 = undefined_table）
                 if (error && error.code === '42P01') {
+                    console.log('表不存在，需要初始化');
                     return { exists: false, error: null, code: '42P01' };
                 }
 
@@ -1198,34 +1219,96 @@ END $$;`;
                 }
 
                 // 成功 - 表存在
+                console.log('表存在，数据:', data);
                 return { exists: true, error: null, code: null };
             } catch (e) {
                 console.error('连接异常:', e);
-                return { exists: null, error: '网络连接失败，请检查网络后刷新页面', code: 'NETWORK' };
+                return { exists: null, error: '网络连接失败: ' + e.message, code: 'NETWORK' };
             }
         }
 
         // ==================== 启动应用 ====================
         async function init() {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log('开始初始化 Supabase 客户端...');
+
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                    auth: {
+                        autoRefreshToken: false,
+                        persistSession: false
+                    }
+                });
+                console.log('Supabase 客户端创建成功');
+            } catch (e) {
+                console.error('创建 Supabase 客户端失败:', e);
+                loadingOverlay.style.display = 'none';
+                initOverlay.style.display = 'flex';
+                initStatus.textContent = '⚠️ 客户端创建失败: ' + e.message;
+                initStatus.className = 'init-status error';
+                return;
+            }
 
             const { exists, error, code } = await checkTableExists();
 
             if (exists === true) {
                 // 表存在，正常启动
+                console.log('数据库已就绪，启动应用');
                 initOverlay.classList.add('hidden');
                 startApp();
             } else if (exists === false) {
-                // 表不存在，显示初始化引导
+                // 表不存在，显示初始化引导（需要管理员密码）
+                console.log('数据库未初始化，显示引导界面');
                 loadingOverlay.style.display = 'none';
                 initOverlay.style.display = 'flex';
+
+                // 如果设置了管理员密码，隐藏初始化按钮直到验证通过
+                if (ADMIN_PASSWORD) {
+                    initBtn.style.display = 'none';
+                    initStatus.textContent = '🔒 需要管理员密码才能初始化数据库';
+                    initStatus.className = 'init-status warning';
+
+                    // 添加密码输入框
+                    const pwdContainer = document.createElement('div');
+                    pwdContainer.innerHTML = `
+                        <div style="margin: 16px 0; display: flex; gap: 8px; justify-content: center;">
+                            <input type="password" id="adminPwdInput" placeholder="输入管理员密码" 
+                                style="padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); 
+                                       font-size: 14px; width: 200px; outline: none; font-family: inherit;">
+                            <button onclick="verifyAdminPassword()" 
+                                style="padding: 10px 20px; background: var(--accent); color: white; border: none; 
+                                       border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit;">
+                                验证
+                            </button>
+                        </div>
+                    `;
+                    initActions.appendChild(pwdContainer);
+                }
             } else {
                 // 连接失败，显示错误但不误导初始化
+                console.error('连接失败:', error);
                 loadingOverlay.style.display = 'none';
                 initOverlay.style.display = 'flex';
-                initBtn.disabled = false;
+                initBtn.disabled = true;
+                initBtn.textContent = '连接失败';
                 initStatus.textContent = '⚠️ ' + (error || '连接失败，请刷新重试');
                 initStatus.className = 'init-status warning';
+            }
+        }
+
+        function verifyAdminPassword() {
+            const input = document.getElementById('adminPwdInput');
+            if (!input) return;
+
+            if (input.value === ADMIN_PASSWORD) {
+                initStatus.textContent = '✅ 密码正确，可以初始化数据库';
+                initStatus.className = 'init-status success';
+                initBtn.style.display = 'inline-block';
+                input.parentElement.style.display = 'none';
+            } else {
+                initStatus.textContent = '❌ 密码错误';
+                initStatus.className = 'init-status error';
+                input.value = '';
+                input.focus();
             }
         }
 
