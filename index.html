@@ -114,11 +114,6 @@
             background: rgba(255, 59, 48, 0.1);
         }
 
-        .sync-status.warning {
-            color: #ff9500;
-            background: rgba(255, 149, 0, 0.1);
-        }
-
         .sync-dot {
             width: 6px; height: 6px;
             border-radius: 50%;
@@ -162,6 +157,7 @@
         .upload-hint { font-size: 12px; color: #a1a1a6; }
         .upload-input { display: none; }
 
+        /* 存储统计卡片 */
         .storage-stats {
             background: linear-gradient(135deg, #0071e3, #42a5f5);
             border-radius: var(--radius-md);
@@ -218,15 +214,6 @@
             background: rgba(255, 255, 255, 0.9);
             border-radius: 2px;
             transition: width 0.5s ease;
-        }
-
-        .storage-warning {
-            margin-top: 8px;
-            font-size: 11px;
-            opacity: 0.9;
-            display: flex;
-            align-items: center;
-            gap: 4px;
         }
 
         .section-title {
@@ -763,6 +750,7 @@
         .init-status.error { color: #ff3b30; }
         .init-status.success { color: #34c759; }
 
+        /* 压缩进度 */
         .compress-progress {
             position: fixed;
             top: 60px;
@@ -790,78 +778,10 @@
         }
 
         .compress-text { font-size: 13px; color: var(--text-secondary); }
-
-        .alert-banner {
-            position: fixed;
-            top: 52px;
-            left: 260px;
-            right: 0;
-            background: #fff3cd;
-            border-bottom: 1px solid #ffc107;
-            padding: 10px 24px;
-            font-size: 13px;
-            color: #856404;
-            z-index: 999;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transform: translateY(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .alert-banner.show { transform: translateY(0); }
-        .alert-banner.error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
-
-        .init-sql-box {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 16px;
-            border-radius: var(--radius-sm);
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 12px;
-            line-height: 1.6;
-            text-align: left;
-            max-width: 600px;
-            width: 100%;
-            margin: 16px 0;
-            overflow-x: auto;
-        }
-
-        .init-sql-box code {
-            color: #9cdcfe;
-        }
-
-        .init-sql-box .comment {
-            color: #6a9955;
-        }
-
-        .init-or-divider {
-            margin: 16px 0;
-            font-size: 13px;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            width: 100%;
-            max-width: 600px;
-        }
-
-        .init-or-divider::before,
-        .init-or-divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
     </style>
+<base target="_blank">
 </head>
 <body>
-    <!-- 容量警告横幅 -->
-    <div class="alert-banner" id="alertBanner">
-        <span>⚠️</span>
-        <span id="alertText">数据库空间即将用完，建议清理旧图片</span>
-    </div>
-
     <!-- 初始化引导界面 -->
     <div class="init-overlay" id="initOverlay">
         <div class="logo" style="font-size: 28px;">
@@ -871,55 +791,11 @@
         <div>
             <div class="init-title">首次使用需要初始化数据库</div>
             <div class="init-desc">
-                由于 Supabase 安全限制，需要手动执行以下 SQL 来创建表。<br>
-                请复制下方代码，在 Supabase Dashboard → SQL Editor 中执行，然后刷新页面。
+                点击下方的"一键初始化"按钮，系统会自动在 Supabase 中创建所需的表结构和权限。<br>
+                只需操作一次，之后团队成员打开网页即可直接使用。
             </div>
         </div>
-        
-        <div class="init-sql-box" id="sqlBox">
-<span class="comment">-- 创建图片表</span>
-CREATE TABLE IF NOT EXISTS images (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name TEXT NOT NULL DEFAULT '未命名',
-    category TEXT NOT NULL DEFAULT 'uncategorized',
-    src TEXT NOT NULL,
-    size BIGINT DEFAULT 0,
-    type TEXT DEFAULT 'image/jpeg',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-<span class="comment">-- 启用行级安全</span>
-ALTER TABLE images ENABLE ROW LEVEL SECURITY;
-
-<span class="comment">-- 创建允许所有操作的策略</span>
-CREATE POLICY "allow_all" ON images
-    FOR ALL USING (true) WITH CHECK (true);
-
-<span class="comment">-- 创建分类表</span>
-CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    icon TEXT DEFAULT '📁',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-<span class="comment">-- 插入默认分类</span>
-INSERT INTO categories (id, name, icon) VALUES
-    ('uncategorized', '未分类', '📄'),
-    ('design', '设计素材', '🎨'),
-    ('photo', '摄影作品', '📷'),
-    ('icon', '图标', '🎯')
-ON CONFLICT (id) DO NOTHING;
-        </div>
-        
-        <button class="init-btn" onclick="copySQL()">📋 复制 SQL 代码</button>
-        
-        <div class="init-or-divider">或者</div>
-        
-        <button class="init-btn" id="initBtn" onclick="tryAutoInit()" style="background: #34c759;">
-            🚀 尝试自动初始化（可能失败）
-        </button>
-        
+        <button class="init-btn" id="initBtn" onclick="initializeDatabase()">一键初始化数据库</button>
         <div class="init-status" id="initStatus"></div>
     </div>
 
@@ -955,7 +831,7 @@ ON CONFLICT (id) DO NOTHING;
             <div class="storage-stats">
                 <div class="storage-stats-header">
                     <span>📊</span>
-                    <span>存储统计 (500MB 上限)</span>
+                    <span>存储统计</span>
                 </div>
                 <div class="storage-stats-grid">
                     <div class="storage-stat-item">
@@ -970,16 +846,12 @@ ON CONFLICT (id) DO NOTHING;
                 <div class="storage-bar">
                     <div class="storage-bar-fill" id="storageBarFill" style="width: 0%"></div>
                 </div>
-                <div class="storage-warning" id="storageWarning" style="display: none;">
-                    <span>⚠️</span>
-                    <span>空间不足 10%，建议清理</span>
-                </div>
             </div>
 
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">↑</div>
                 <div class="upload-text">点击或拖拽上传</div>
-                <div class="upload-hint">自动压缩，节省空间</div>
+                <div class="upload-hint">支持批量上传，自动压缩，团队实时同步</div>
                 <input type="file" class="upload-input" id="fileInput" multiple accept="image/*">
             </div>
 
@@ -1079,12 +951,6 @@ ON CONFLICT (id) DO NOTHING;
         const SUPABASE_URL = 'https://itbxnkutkbejbmyinmqz.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J-fHVbKt2k63v1WJ7kVnKg_MLcTnmC7';
 
-        const FREE_TIER_LIMITS = {
-            dbSize: 500 * 1024 * 1024,
-            fileStorage: 1 * 1024 * 1024 * 1024,
-            inactivityDays: 7
-        };
-
         let supabase = null;
         let images = [];
         let categories = [
@@ -1104,13 +970,15 @@ ON CONFLICT (id) DO NOTHING;
         let isOnline = false;
         let realtimeChannel = null;
 
+        // 压缩配置
         const COMPRESS_CONFIG = {
-            maxWidth: 1200,
-            maxHeight: 1200,
-            quality: 0.8,
-            maxSizeMB: 1
+            maxWidth: 1920,
+            maxHeight: 1920,
+            quality: 0.85,
+            maxSizeMB: 2
         };
 
+        // DOM 元素
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const galleryGrid = document.getElementById('galleryGrid');
@@ -1133,56 +1001,6 @@ ON CONFLICT (id) DO NOTHING;
         const initStatus = document.getElementById('initStatus');
         const compressProgress = document.getElementById('compressProgress');
         const compressText = document.getElementById('compressText');
-        const alertBanner = document.getElementById('alertBanner');
-        const alertText = document.getElementById('alertText');
-
-        // ==================== 复制 SQL ====================
-        function copySQL() {
-            const sql = document.getElementById('sqlBox').innerText;
-            navigator.clipboard.writeText(sql).then(() => {
-                showToast('SQL 已复制，请粘贴到 Supabase SQL Editor 执行', '✓');
-            });
-        }
-
-        // ==================== 尝试自动初始化 ====================
-        async function tryAutoInit() {
-            initBtn.disabled = true;
-            initStatus.textContent = '正在尝试自动创建表...';
-            initStatus.className = 'init-status';
-
-            try {
-                const { error: testError } = await supabase
-                    .from('images')
-                    .insert({
-                        name: '_test_init',
-                        category: 'uncategorized',
-                        src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-                        size: 42
-                    });
-
-                if (testError && testError.code === '42P01') {
-                    initStatus.textContent = '❌ 自动初始化失败：表不存在且无法自动创建。请手动执行上方 SQL。';
-                    initStatus.className = 'init-status error';
-                    initBtn.disabled = false;
-                    return;
-                }
-
-                await supabase.from('images').delete().eq('name', '_test_init');
-
-                initStatus.textContent = '✅ 初始化成功！正在加载...';
-                initStatus.className = 'init-status success';
-
-                setTimeout(() => {
-                    initOverlay.classList.add('hidden');
-                    startApp();
-                }, 1000);
-
-            } catch (error) {
-                initStatus.textContent = '❌ 自动初始化失败：' + error.message;
-                initStatus.className = 'init-status error';
-                initBtn.disabled = false;
-            }
-        }
 
         // ==================== 图片压缩 ====================
         async function compressImage(file) {
@@ -1192,22 +1010,28 @@ ON CONFLICT (id) DO NOTHING;
                     const img = new Image();
                     img.onload = () => {
                         let { width, height } = img;
+                        
+                        // 计算缩放比例
                         const scale = Math.min(
                             COMPRESS_CONFIG.maxWidth / width,
                             COMPRESS_CONFIG.maxHeight / height,
                             1
                         );
+                        
                         width = Math.round(width * scale);
                         height = Math.round(height * scale);
-
+                        
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
+                        
+                        // 使用高质量缩放
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(img, 0, 0, width, height);
-
+                        
+                        // 转换为 Blob
                         canvas.toBlob((blob) => {
                             if (!blob) {
                                 reject(new Error('压缩失败'));
@@ -1220,7 +1044,7 @@ ON CONFLICT (id) DO NOTHING;
                                 width: width,
                                 height: height
                             });
-                        }, 'image/jpeg', COMPRESS_CONFIG.quality);
+                        }, file.type, COMPRESS_CONFIG.quality);
                     };
                     img.onerror = () => reject(new Error('图片加载失败'));
                     img.src = e.target.result;
@@ -1228,6 +1052,63 @@ ON CONFLICT (id) DO NOTHING;
                 reader.onerror = () => reject(new Error('文件读取失败'));
                 reader.readAsDataURL(file);
             });
+        }
+
+        // ==================== 数据库初始化 ====================
+        async function initializeDatabase() {
+            initBtn.disabled = true;
+            initStatus.textContent = '正在创建表结构...';
+            initStatus.className = 'init-status';
+
+            try {
+                const createTableSQL = `
+                    CREATE TABLE IF NOT EXISTS images (
+                        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                        name TEXT NOT NULL DEFAULT '未命名',
+                        category TEXT NOT NULL DEFAULT 'uncategorized',
+                        src TEXT NOT NULL,
+                        size BIGINT DEFAULT 0,
+                        type TEXT DEFAULT 'image/png',
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                `;
+
+                const { error: sqlError } = await supabase.rpc('exec_sql', { sql: createTableSQL });
+
+                if (sqlError) {
+                    console.log('RPC 方式失败，尝试直接操作:', sqlError);
+                }
+
+                const policiesSQL = `
+                    ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_policies WHERE tablename = 'images' AND policyname = 'allow_all'
+                        ) THEN
+                            CREATE POLICY "allow_all" ON images
+                                FOR ALL USING (true) WITH CHECK (true);
+                        END IF;
+                    END $$;
+                `;
+
+                await supabase.rpc('exec_sql', { sql: policiesSQL });
+
+                initStatus.textContent = '✅ 初始化成功！正在加载...';
+                initStatus.className = 'init-status success';
+
+                setTimeout(() => {
+                    initOverlay.classList.add('hidden');
+                    startApp();
+                }, 1000);
+
+            } catch (error) {
+                console.error('初始化失败:', error);
+                initStatus.textContent = '初始化失败: ' + error.message + '，请手动在 Supabase Dashboard 中创建表';
+                initStatus.className = 'init-status error';
+                initBtn.disabled = false;
+            }
         }
 
         // ==================== 检查表是否存在 ====================
@@ -1268,27 +1149,6 @@ ON CONFLICT (id) DO NOTHING;
             setupEventListeners();
             updateSyncStatus(true);
             hideLoading();
-            checkStorageCapacity();
-        }
-
-        // ==================== 检查存储容量 ====================
-        function checkStorageCapacity() {
-            const totalSize = images.reduce((sum, img) => sum + (img.size || 0), 0);
-            const percent = (totalSize / FREE_TIER_LIMITS.dbSize) * 100;
-
-            if (percent > 90) {
-                alertBanner.classList.add('show', 'error');
-                alertText.textContent = `数据库已用 ${percent.toFixed(1)}%，即将达到 500MB 上限！请立即清理旧图片`;
-                syncStatus.className = 'sync-status offline';
-                syncText.textContent = '空间不足';
-            } else if (percent > 70) {
-                alertBanner.classList.add('show');
-                alertText.textContent = `数据库已用 ${percent.toFixed(1)}%，建议清理旧图片避免数据丢失`;
-                syncStatus.className = 'sync-status warning';
-                syncText.textContent = '空间紧张';
-            } else {
-                alertBanner.classList.remove('show', 'error');
-            }
         }
 
         // ==================== 数据加载 ====================
@@ -1323,7 +1183,6 @@ ON CONFLICT (id) DO NOTHING;
                 renderGallery();
                 updateCounts();
                 updateStorageStats();
-                checkStorageCapacity();
             } catch (error) {
                 console.error('加载图片失败:', error);
                 showToast('加载失败: ' + error.message, '✕');
@@ -1340,31 +1199,26 @@ ON CONFLICT (id) DO NOTHING;
         function updateStorageStats() {
             const count = images.length;
             const totalSize = images.reduce((sum, img) => sum + (img.size || 0), 0);
-
+            
             document.getElementById('statCount').textContent = count;
             document.getElementById('statSize').textContent = formatSize(totalSize);
-
-            const percent = Math.min((totalSize / FREE_TIER_LIMITS.dbSize) * 100, 100);
+            
+            // 模拟进度条（假设 1GB 为满）
+            const maxSize = 1024 * 1024 * 1024;
+            const percent = Math.min((totalSize / maxSize) * 100, 100);
             document.getElementById('storageBarFill').style.width = percent + '%';
-
-            const warningEl = document.getElementById('storageWarning');
-            if (percent > 80) {
-                warningEl.style.display = 'flex';
-                warningEl.innerHTML = `<span>⚠️</span><span>已用 ${percent.toFixed(0)}%，建议清理</span>`;
-            } else {
-                warningEl.style.display = 'none';
-            }
         }
 
         // ==================== 实时订阅 ====================
         function setupRealtimeSubscription() {
             realtimeChannel = supabase
                 .channel('images_changes')
-                .on('postgres_changes',
+                .on('postgres_changes', 
                     { event: '*', schema: 'public', table: 'images' },
                     async (payload) => {
                         console.log('实时更新:', payload);
                         await loadImages();
+
                         if (payload.eventType === 'INSERT') {
                             showToast('新图片已同步', '📥');
                         }
@@ -1419,16 +1273,6 @@ ON CONFLICT (id) DO NOTHING;
             const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
             if (fileArray.length === 0) return;
 
-            const currentSize = images.reduce((sum, img) => sum + (img.size || 0), 0);
-            const estimatedNewSize = fileArray.reduce((sum, f) => sum + Math.min(f.size, COMPRESS_CONFIG.maxSizeMB * 1024 * 1024), 0);
-
-            if (currentSize + estimatedNewSize > FREE_TIER_LIMITS.dbSize * 0.95) {
-                showToast('数据库空间不足，请先删除旧图片', '⚠');
-                alertBanner.classList.add('show', 'error');
-                alertText.textContent = '空间已满，无法上传新图片！请删除旧图片释放空间';
-                return;
-            }
-
             showToast(`正在处理 ${fileArray.length} 张图片...`, '⏳');
 
             for (const file of fileArray) {
@@ -1436,16 +1280,17 @@ ON CONFLICT (id) DO NOTHING;
                     let finalFile = file;
                     let compressedInfo = null;
 
+                    // 如果图片大于阈值，进行压缩
                     if (file.size > COMPRESS_CONFIG.maxSizeMB * 1024 * 1024) {
                         compressText.textContent = `正在压缩: ${file.name}`;
                         compressProgress.classList.add('show');
-
+                        
                         const result = await compressImage(file);
-                        finalFile = new File([result.blob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' });
+                        finalFile = new File([result.blob], file.name, { type: file.type });
                         compressedInfo = result;
-
+                        
                         compressProgress.classList.remove('show');
-
+                        
                         const savedPercent = Math.round((1 - result.compressedSize / result.originalSize) * 100);
                         console.log(`压缩 ${file.name}: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)} (节省 ${savedPercent}%)`);
                     }
@@ -1457,7 +1302,7 @@ ON CONFLICT (id) DO NOTHING;
                         category: currentCategory === 'all' ? 'uncategorized' : currentCategory,
                         src: base64,
                         size: finalFile.size,
-                        type: finalFile.type
+                        type: file.type
                     };
 
                     const { data, error } = await supabase
@@ -1469,7 +1314,7 @@ ON CONFLICT (id) DO NOTHING;
                     if (error) throw error;
 
                     images.unshift(data);
-
+                    
                     if (compressedInfo) {
                         const saved = formatSize(compressedInfo.originalSize - compressedInfo.compressedSize);
                         showToast(`上传成功（压缩节省 ${saved}）`);
@@ -1484,7 +1329,6 @@ ON CONFLICT (id) DO NOTHING;
             renderGallery();
             updateCounts();
             updateStorageStats();
-            checkStorageCapacity();
             showToast(`成功上传 ${fileArray.length} 张图片`);
         }
 
@@ -1593,7 +1437,7 @@ ON CONFLICT (id) DO NOTHING;
 
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
-                filtered = filtered.filter(img =>
+                filtered = filtered.filter(img => 
                     img.name.toLowerCase().includes(query) ||
                     categories.find(c => c.id === img.category)?.name.toLowerCase().includes(query)
                 );
