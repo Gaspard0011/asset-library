@@ -114,6 +114,11 @@
             background: rgba(255, 59, 48, 0.1);
         }
 
+        .sync-status.warning {
+            color: #ff9500;
+            background: rgba(255, 149, 0, 0.1);
+        }
+
         .sync-dot {
             width: 6px; height: 6px;
             border-radius: 50%;
@@ -214,6 +219,15 @@
             background: rgba(255, 255, 255, 0.9);
             border-radius: 2px;
             transition: width 0.5s ease;
+        }
+
+        .storage-warning {
+            margin-top: 8px;
+            font-size: 11px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .section-title {
@@ -778,10 +792,37 @@
         }
 
         .compress-text { font-size: 13px; color: var(--text-secondary); }
+
+        .alert-banner {
+            position: fixed;
+            top: 52px;
+            left: 260px;
+            right: 0;
+            background: #fff3cd;
+            border-bottom: 1px solid #ffc107;
+            padding: 10px 24px;
+            font-size: 13px;
+            color: #856404;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .alert-banner.show { transform: translateY(0); }
+        .alert-banner.error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
     </style>
 <base target="_blank">
 </head>
 <body>
+    <!-- 容量警告横幅 -->
+    <div class="alert-banner" id="alertBanner">
+        <span>⚠️</span>
+        <span id="alertText">数据库空间即将用完，建议清理旧图片</span>
+    </div>
+
     <!-- 初始化引导界面 -->
     <div class="init-overlay" id="initOverlay">
         <div class="logo" style="font-size: 28px;">
@@ -792,7 +833,8 @@
             <div class="init-title">首次使用需要初始化数据库</div>
             <div class="init-desc">
                 点击下方的"一键初始化"按钮，系统会自动在 Supabase 中创建所需的表结构和权限。<br>
-                只需操作一次，之后团队成员打开网页即可直接使用。
+                只需操作一次，之后团队成员打开网页即可直接使用。<br><br>
+                <strong>注意：</strong>免费版数据库容量仅 500MB，建议定期清理旧图片。
             </div>
         </div>
         <button class="init-btn" id="initBtn" onclick="initializeDatabase()">一键初始化数据库</button>
@@ -831,7 +873,7 @@
             <div class="storage-stats">
                 <div class="storage-stats-header">
                     <span>📊</span>
-                    <span>存储统计</span>
+                    <span>存储统计 (500MB 上限)</span>
                 </div>
                 <div class="storage-stats-grid">
                     <div class="storage-stat-item">
@@ -846,12 +888,16 @@
                 <div class="storage-bar">
                     <div class="storage-bar-fill" id="storageBarFill" style="width: 0%"></div>
                 </div>
+                <div class="storage-warning" id="storageWarning" style="display: none;">
+                    <span>⚠️</span>
+                    <span>空间不足 10%，建议清理</span>
+                </div>
             </div>
 
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">↑</div>
                 <div class="upload-text">点击或拖拽上传</div>
-                <div class="upload-hint">支持批量上传，自动压缩，团队实时同步</div>
+                <div class="upload-hint">自动压缩，节省空间</div>
                 <input type="file" class="upload-input" id="fileInput" multiple accept="image/*">
             </div>
 
@@ -951,6 +997,13 @@
         const SUPABASE_URL = 'https://itbxnkutkbejbmyinmqz.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J-fHVbKt2k63v1WJ7kVnKg_MLcTnmC7';
 
+        // 免费版限制
+        const FREE_TIER_LIMITS = {
+            dbSize: 500 * 1024 * 1024,  // 500MB
+            fileStorage: 1 * 1024 * 1024 * 1024,  // 1GB
+            inactivityDays: 7
+        };
+
         let supabase = null;
         let images = [];
         let categories = [
@@ -972,10 +1025,10 @@
 
         // 压缩配置
         const COMPRESS_CONFIG = {
-            maxWidth: 1920,
-            maxHeight: 1920,
-            quality: 0.85,
-            maxSizeMB: 2
+            maxWidth: 1200,      // 最大宽度
+            maxHeight: 1200,     // 最大高度
+            quality: 0.8,        // JPEG 质量
+            maxSizeMB: 1         // 超过 1MB 就压缩
         };
 
         // DOM 元素
@@ -1001,6 +1054,8 @@
         const initStatus = document.getElementById('initStatus');
         const compressProgress = document.getElementById('compressProgress');
         const compressText = document.getElementById('compressText');
+        const alertBanner = document.getElementById('alertBanner');
+        const alertText = document.getElementById('alertText');
 
         // ==================== 图片压缩 ====================
         async function compressImage(file) {
@@ -1044,7 +1099,7 @@
                                 width: width,
                                 height: height
                             });
-                        }, file.type, COMPRESS_CONFIG.quality);
+                        }, 'image/jpeg', COMPRESS_CONFIG.quality); // 统一转 JPEG 压缩
                     };
                     img.onerror = () => reject(new Error('图片加载失败'));
                     img.src = e.target.result;
@@ -1061,39 +1116,55 @@
             initStatus.className = 'init-status';
 
             try {
-                const createTableSQL = `
-                    CREATE TABLE IF NOT EXISTS images (
-                        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-                        name TEXT NOT NULL DEFAULT '未命名',
-                        category TEXT NOT NULL DEFAULT 'uncategorized',
-                        src TEXT NOT NULL,
-                        size BIGINT DEFAULT 0,
-                        type TEXT DEFAULT 'image/png',
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                    );
-                `;
+                // 创建 images 表
+                const { error: tableError } = await supabase.rpc('exec_sql', {
+                    sql: `
+                        CREATE TABLE IF NOT EXISTS images (
+                            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                            name TEXT NOT NULL DEFAULT '未命名',
+                            category TEXT NOT NULL DEFAULT 'uncategorized',
+                            src TEXT NOT NULL,
+                            size BIGINT DEFAULT 0,
+                            type TEXT DEFAULT 'image/jpeg',
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        );
+                    `
+                });
 
-                const { error: sqlError } = await supabase.rpc('exec_sql', { sql: createTableSQL });
-
-                if (sqlError) {
-                    console.log('RPC 方式失败，尝试直接操作:', sqlError);
+                if (tableError && !tableError.message.includes('already exists')) {
+                    console.log('RPC 失败，尝试直接创建:', tableError);
                 }
 
-                const policiesSQL = `
-                    ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+                // 启用 RLS 并创建策略
+                const { error: policyError } = await supabase.rpc('exec_sql', {
+                    sql: `
+                        ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+                        
+                        DO $$ 
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_policies WHERE tablename = 'images' AND policyname = 'allow_all'
+                            ) THEN
+                                CREATE POLICY "allow_all" ON images
+                                    FOR ALL USING (true) WITH CHECK (true);
+                            END IF;
+                        END $$;
+                    `
+                });
 
-                    DO $$ 
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_policies WHERE tablename = 'images' AND policyname = 'allow_all'
-                        ) THEN
-                            CREATE POLICY "allow_all" ON images
-                                FOR ALL USING (true) WITH CHECK (true);
-                        END IF;
-                    END $$;
-                `;
+                if (policyError) console.log('策略创建:', policyError);
 
-                await supabase.rpc('exec_sql', { sql: policiesSQL });
+                // 创建 categories 表
+                await supabase.rpc('exec_sql', {
+                    sql: `
+                        CREATE TABLE IF NOT EXISTS categories (
+                            id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            icon TEXT DEFAULT '📁',
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        );
+                    `
+                });
 
                 initStatus.textContent = '✅ 初始化成功！正在加载...';
                 initStatus.className = 'init-status success';
@@ -1105,7 +1176,7 @@
 
             } catch (error) {
                 console.error('初始化失败:', error);
-                initStatus.textContent = '初始化失败: ' + error.message + '，请手动在 Supabase Dashboard 中创建表';
+                initStatus.textContent = '初始化失败: ' + error.message;
                 initStatus.className = 'init-status error';
                 initBtn.disabled = false;
             }
@@ -1149,6 +1220,29 @@
             setupEventListeners();
             updateSyncStatus(true);
             hideLoading();
+            
+            // 检查容量
+            checkStorageCapacity();
+        }
+
+        // ==================== 检查存储容量 ====================
+        function checkStorageCapacity() {
+            const totalSize = images.reduce((sum, img) => sum + (img.size || 0), 0);
+            const percent = (totalSize / FREE_TIER_LIMITS.dbSize) * 100;
+            
+            if (percent > 90) {
+                alertBanner.classList.add('show', 'error');
+                alertText.textContent = `数据库已用 ${percent.toFixed(1)}%，即将达到 500MB 上限！请立即清理旧图片`;
+                syncStatus.className = 'sync-status offline';
+                syncText.textContent = '空间不足';
+            } else if (percent > 70) {
+                alertBanner.classList.add('show');
+                alertText.textContent = `数据库已用 ${percent.toFixed(1)}%，建议清理旧图片避免数据丢失`;
+                syncStatus.className = 'sync-status warning';
+                syncText.textContent = '空间紧张';
+            } else {
+                alertBanner.classList.remove('show', 'error');
+            }
         }
 
         // ==================== 数据加载 ====================
@@ -1162,6 +1256,7 @@
                 if (data && data.length > 0) {
                     categories = data;
                 } else {
+                    // 初始化默认分类
                     await saveCategoriesToDB();
                 }
             } catch (e) {
@@ -1183,6 +1278,7 @@
                 renderGallery();
                 updateCounts();
                 updateStorageStats();
+                checkStorageCapacity();
             } catch (error) {
                 console.error('加载图片失败:', error);
                 showToast('加载失败: ' + error.message, '✕');
@@ -1203,10 +1299,18 @@
             document.getElementById('statCount').textContent = count;
             document.getElementById('statSize').textContent = formatSize(totalSize);
             
-            // 模拟进度条（假设 1GB 为满）
-            const maxSize = 1024 * 1024 * 1024;
-            const percent = Math.min((totalSize / maxSize) * 100, 100);
+            // 进度条（基于 500MB）
+            const percent = Math.min((totalSize / FREE_TIER_LIMITS.dbSize) * 100, 100);
             document.getElementById('storageBarFill').style.width = percent + '%';
+            
+            // 警告显示
+            const warningEl = document.getElementById('storageWarning');
+            if (percent > 80) {
+                warningEl.style.display = 'flex';
+                warningEl.innerHTML = `<span>⚠️</span><span>已用 ${percent.toFixed(0)}%，建议清理</span>`;
+            } else {
+                warningEl.style.display = 'none';
+            }
         }
 
         // ==================== 实时订阅 ====================
@@ -1273,6 +1377,17 @@
             const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
             if (fileArray.length === 0) return;
 
+            // 检查容量
+            const currentSize = images.reduce((sum, img) => sum + (img.size || 0), 0);
+            const estimatedNewSize = fileArray.reduce((sum, f) => sum + Math.min(f.size, COMPRESS_CONFIG.maxSizeMB * 1024 * 1024), 0);
+            
+            if (currentSize + estimatedNewSize > FREE_TIER_LIMITS.dbSize * 0.95) {
+                showToast('数据库空间不足，请先删除旧图片', '⚠');
+                alertBanner.classList.add('show', 'error');
+                alertText.textContent = '空间已满，无法上传新图片！请删除旧图片释放空间';
+                return;
+            }
+
             showToast(`正在处理 ${fileArray.length} 张图片...`, '⏳');
 
             for (const file of fileArray) {
@@ -1286,7 +1401,7 @@
                         compressProgress.classList.add('show');
                         
                         const result = await compressImage(file);
-                        finalFile = new File([result.blob], file.name, { type: file.type });
+                        finalFile = new File([result.blob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' });
                         compressedInfo = result;
                         
                         compressProgress.classList.remove('show');
@@ -1302,7 +1417,7 @@
                         category: currentCategory === 'all' ? 'uncategorized' : currentCategory,
                         src: base64,
                         size: finalFile.size,
-                        type: file.type
+                        type: finalFile.type
                     };
 
                     const { data, error } = await supabase
@@ -1329,6 +1444,7 @@
             renderGallery();
             updateCounts();
             updateStorageStats();
+            checkStorageCapacity();
             showToast(`成功上传 ${fileArray.length} 张图片`);
         }
 
@@ -1716,7 +1832,7 @@
 
         async function batchDelete() {
             if (selectedImages.size === 0) return;
-            if (!confirm(`确定要删除选中的 ${selectedImages.size} 张图片吗？`)) return;
+            if (!confirm(`确定要删除选中的 ${selectedImages.size} 张图片吗？这将释放 ${formatSize(selectedImages.size * 1024 * 1024)} 空间`)) return;
 
             for (const id of selectedImages) {
                 await supabase.from('images').delete().eq('id', id);
